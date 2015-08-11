@@ -3,6 +3,8 @@
 })(this, function (request, Route, Q) {
   'use strict';
 
+  require('babel/polyfill');
+
   var super_res__superRes = {};
 
   var actionDefaults = {

@@ -1,3 +1,5 @@
+var assign = assign || require('object.assign');
+
 import request from 'superagent';
 import Route from 'route-parser';
 import Q from 'q';
@@ -26,8 +28,8 @@ function buildRequest(action, route, params, data) {
   return currentRequest;
 }
 
-function buildAction(url, action) {
-  const fullAction = Object.assign({url: url}, actionDefaults, action);
+function buildAction(url, defaultParams, action) {
+  const fullAction = assign({url: url}, actionDefaults, action);
   const route = new Route(fullAction.url);
   return function (params, data) {
     let deferred = Q.defer();
@@ -37,7 +39,7 @@ function buildAction(url, action) {
         deferred.reject({reason: 'Timeout reached'});
       }, action.timeout);
     }
-    buildRequest(fullAction, route, params, data)
+    buildRequest(fullAction, route, assign({}, defaultParams, params), data)
       .end((err, res) => {
         clearTimeout(timeoutId);
         if (err) {
@@ -50,22 +52,22 @@ function buildAction(url, action) {
   };
 }
 
-function buildDefaultActions(url) {
+function buildDefaultActions(url, defaultParams) {
   let resource = {};
-  resource.get = buildAction(url, Object.assign({}, actionDefaults));
+  resource.get = buildAction(url, defaultParams, assign({}, actionDefaults));
   resource.query = resource.get;
-  resource.save = buildAction(url, Object.assign({}, actionDefaults, {method: 'POST'}));
-  resource.put = buildAction(url, Object.assign({}, actionDefaults, {method: 'PUT'}));
-  resource.remove = buildAction(url, Object.assign({}, actionDefaults, {method: 'DELETE'}));
+  resource.save = buildAction(url, defaultParams, assign({}, actionDefaults, {method: 'POST'}));
+  resource.put = buildAction(url, defaultParams, assign({}, actionDefaults, {method: 'PUT'}));
+  resource.remove = buildAction(url, defaultParams, assign({}, actionDefaults, {method: 'DELETE'}));
   resource['delete'] = resource.remove;
   return resource;
 }
 
 superRes.resource = (url, defaultParams, actions) => {
-  let resource = buildDefaultActions(url);
+  let resource = buildDefaultActions(url, defaultParams);
   if (actions) {
     Object.getOwnPropertyNames(actions).forEach((name) => {
-      resource[name] = buildAction(url, actions[name]);
+      resource[name] = buildAction(url, defaultParams, actions[name]);
     });
   }
   return resource;
@@ -73,7 +75,7 @@ superRes.resource = (url, defaultParams, actions) => {
 
 superRes.proxyQ = (qInstance) => {
   return (resource) => {
-    let proxiedResource = Object.assign({}, resource);
+    let proxiedResource = assign({}, resource);
     Object.getOwnPropertyNames(resource).forEach((name) => {
       let actionFunction = proxiedResource[name];
       proxiedResource[name] = function (...args) {
