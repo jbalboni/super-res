@@ -25,12 +25,14 @@ There is also a function called proxyQ, which will wrap the promises returned by
     //somewhere else
     myResource.get({id: 1}; // returns a promise wrapped in $q.when() to hook into digest cycle
 
-The api is generally the same, but some things are not yet implemented:
+The api is generally the same, but some things are not yet implemented. Here's what's on the list to add:
 - transforms
-- http headers
+- passing http headers
 - caching
 - withCredentials
 - stripTrailingSlashes
+- tests
+- batching
 
 Differences from angular-resource:
 - Entirely promise based. No more $promise properties
