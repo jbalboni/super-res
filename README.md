@@ -1,7 +1,5 @@
 # super-res
 
-RESTish wrapper for superagent
-
 [![Travis build status](http://img.shields.io/travis/jbalboni/super-res.svg?style=flat)](https://travis-ci.org/jbalboni/super-res)
 [![Code Climate](https://codeclimate.com/github/jbalboni/super-res/badges/gpa.svg)](https://codeclimate.com/github/jbalboni/super-res)
 [![Test Coverage](https://codeclimate.com/github/jbalboni/super-res/badges/coverage.svg)](https://codeclimate.com/github/jbalboni/super-res)
@@ -10,7 +8,7 @@ RESTish wrapper for superagent
 
 This is patterned off of Angular's $resource service, except that it does not depend on Angular and uses superagent instead of $http. Route parsing is done with the route-parser module.
 
-    var superRes = require('super-res);
+    var superRes = require('super-res');
 
     var myResource = superRes.resource('/my-endpoint/:id')
 
@@ -19,7 +17,7 @@ This is patterned off of Angular's $resource service, except that it does not de
 There is also a function called proxyQ, which will wrap the promises returned by each action with an instance of $q passed to it. This is helpful if you want to use with Angular:
 
     angular.module('test', []).factory('myResource', function ($q) {
-        var superRes = require('super-res);
+        var superRes = require('super-res');
         
         return superRes.proxyQ($q)(superRes.resource('/my-endpoint/:id'));
     });
