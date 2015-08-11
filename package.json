@@ -1,6 +1,6 @@
 {
   "name": "super-res",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "RESTish wrapper for superagent, based on angular-resource",
   "main": "dist/super-res.js",
   "scripts": {
@@ -16,7 +16,12 @@
   "files": [
     "app"
   ],
-  "keywords": ["superagent", "resource", "angular", "rest"],
+  "keywords": [
+    "superagent",
+    "resource",
+    "angular",
+    "rest"
+  ],
   "author": "Jeff Balboni <jbalboni@gmail.com>",
   "license": "MIT",
   "bugs": {
