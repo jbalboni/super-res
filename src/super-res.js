@@ -8,7 +8,9 @@ let superRes = {};
 
 const actionDefaults = {
   method: 'GET',
-  responseType: 'json'
+  responseType: 'json',
+  transformRequest: [],
+  transformResponse: []
 };
 
 function buildRequest(action, route, params, data) {
@@ -18,14 +20,29 @@ function buildRequest(action, route, params, data) {
   currentRequest = request[method === 'delete' ? 'del' : method](route.reverse(params));
 
   currentRequest = currentRequest.accept(action.responseType);
+  if (action.headers) {
+    currentRequest = currentRequest.set(action.headers);
+  }
 
   if (data && method === 'get') {
-    currentRequest = currentRequest.query(data);
+    currentRequest = currentRequest.query(applyRequestTransforms(action.transformRequest, currentRequest, data));
   } else if (data) {
-    currentRequest = currentRequest.send(data);
+    currentRequest = currentRequest.send(applyRequestTransforms(action.transformRequest, currentRequest, data));
   }
 
   return currentRequest;
+}
+
+function applyResponseTransforms(transforms, response) {
+  return transforms.reduceRight(function (memo, transform) {
+    return transform(memo, response.header);
+  }, response.body);
+}
+
+function applyRequestTransforms(transforms, request, data) {
+  return transforms.reduceRight(function (memo, transform) {
+    return transform(memo, request.header);
+  }, data);
 }
 
 function buildAction(url, defaultParams, action) {
@@ -45,7 +62,7 @@ function buildAction(url, defaultParams, action) {
         if (err) {
           deferred.reject(err);
         } else {
-          deferred.resolve(res.body);
+          deferred.resolve(applyResponseTransforms(action.transformResponse, res));
         }
       });
     return deferred.promise;
@@ -80,6 +97,7 @@ superRes.proxyQ = (qInstance) => {
       let actionFunction = proxiedResource[name];
       proxiedResource[name] = function (...args) {
         let promise = actionFunction.apply(proxiedResource, args);
+        //TODO am I swallowing rejected promises here?
         return qInstance.when(promise);
       }
     });
