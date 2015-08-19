@@ -13,7 +13,7 @@ let superRes = proxyquire('../../src/super-res', stubs);
 
 import Q from 'q';
 
-describe('superRes', () => {
+describe('resource', () => {
   describe('Default actions are defined', () => {
     let resource;
     beforeEach(() => {
@@ -48,7 +48,7 @@ describe('superRes', () => {
       });
     });
 
-    it('should have get', () => {
+    it('should have myFunction', () => {
       expect(resource.myFunction).to.be.a('function');
     });
 

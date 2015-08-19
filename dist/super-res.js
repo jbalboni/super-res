@@ -1,81 +1,127 @@
+var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('superagent'), require('route-parser'), require('q')) : typeof define === 'function' && define.amd ? define(['superagent', 'route-parser', 'q'], factory) : global.superRes = factory(global.request, global.Route, global.Q);
-})(this, function (request, Route, Q) {
+  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('q'), require('superagent'), require('route-parser')) : typeof define === 'function' && define.amd ? define(['q', 'superagent', 'route-parser'], factory) : global.superRes = factory(global.Q, global.superagent, global.Route);
+})(this, function (Q, superagent, Route) {
   'use strict';
 
-  require('babel/polyfill');
+  var actionDefaults = actionDefaults = {
+    method: 'GET',
+    responseType: 'json',
+    transformRequest: [],
+    transformResponse: []
+  };
+
+  var ResourceAction_js__assign = ResourceAction_js__assign || require('object.assign');
+
+  function applyResponseTransforms(transforms, response) {
+    return transforms.reduceRight(function (memo, transform) {
+      return transform(memo, response.header);
+    }, response.body);
+  }
+
+  function applyRequestTransforms(transforms, request, data) {
+    return transforms.reduceRight(function (memo, transform) {
+      return transform(memo, request.header);
+    }, data);
+  }
+
+  var ResourceAction = (function () {
+    function ResourceAction(url, defaultParams, action) {
+      _classCallCheck(this, ResourceAction);
+
+      this.config = ResourceAction_js__assign({ url: url }, actionDefaults, action);
+      this.route = new Route(this.config.url);
+      this.defaultParams = defaultParams;
+    }
+
+    _createClass(ResourceAction, [{
+      key: 'buildRequest',
+      value: function buildRequest(params, data) {
+        var method = this.config.method.toLowerCase();
+        var currentRequest = superagent[method === 'delete' ? 'del' : method](this.route.reverse(params));
+
+        currentRequest = currentRequest.accept(this.config.responseType);
+        if (this.config.headers) {
+          currentRequest = currentRequest.set(this.config.headers);
+        }
+
+        if (this.config.timeout) {
+          currentRequest.timeout(this.config.timeout);
+        } else {
+          currentRequest.clearTimeout();
+        }
+
+        if (data && method === 'get') {
+          currentRequest = currentRequest.query(applyRequestTransforms(this.config.transformRequest, currentRequest, data));
+        } else if (data) {
+          currentRequest = currentRequest.send(applyRequestTransforms(this.config.transformRequest, currentRequest, data));
+        }
+
+        return currentRequest;
+      }
+    }, {
+      key: 'makeRequest',
+      value: function makeRequest(params, data) {
+        var _this = this;
+
+        var deferred = Q.defer();
+
+        console.log(superagent);
+        this.buildRequest(ResourceAction_js__assign({}, this.defaultParams, params), data).end(function (err, res) {
+          console.log('here');
+          if (err) {
+            deferred.reject(err);
+          } else {
+            deferred.resolve(applyResponseTransforms(_this.config.transformResponse, res));
+          }
+        });
+        return deferred.promise;
+      }
+    }]);
+
+    return ResourceAction;
+  })();
+
+  var super_res__assign = super_res__assign || require('object.assign');
 
   var super_res__superRes = {};
 
-  var actionDefaults = {
-    method: 'GET',
-    responseType: 'json'
-  };
-
-  function buildRequest(action, route, params, data) {
-    var currentRequest = request;
-
-    var method = action.method.toLowerCase();
-    currentRequest = request[method === 'delete' ? 'del' : method](route.reverse(params));
-
-    currentRequest = currentRequest.accept(action.responseType);
-
-    if (data && method === 'get') {
-      currentRequest = currentRequest.query(data);
-    } else if (data) {
-      currentRequest = currentRequest.send(data);
-    }
-
-    return currentRequest;
-  }
-
-  function buildAction(url, action) {
-    var fullAction = Object.assign({ url: url }, actionDefaults, action);
-    var route = new Route(fullAction.url);
-    return function (params, data) {
-      var deferred = Q.defer();
-      var timeoutId = undefined;
-      if (action.timeout) {
-        timeoutId = setTimeout(function () {
-          deferred.reject({ reason: 'Timeout reached' });
-        }, action.timeout);
-      }
-      buildRequest(fullAction, route, params, data).end(function (err, res) {
-        clearTimeout(timeoutId);
-        if (err) {
-          deferred.reject(err);
-        } else {
-          deferred.resolve(res.body);
-        }
-      });
-      return deferred.promise;
-    };
-  }
-
-  function buildDefaultActions(url) {
+  function generateDefaultActions(url, defaultParams) {
     var resource = {};
-    resource.get = buildAction(url, Object.assign({}, actionDefaults));
+
+    var action = new ResourceAction(url, defaultParams, super_res__assign({}, actionDefaults));
+    resource.get = action.makeRequest.bind(action);
     resource.query = resource.get;
-    resource.save = buildAction(url, Object.assign({}, actionDefaults, { method: 'POST' }));
-    resource.put = buildAction(url, Object.assign({}, actionDefaults, { method: 'PUT' }));
-    resource.remove = buildAction(url, Object.assign({}, actionDefaults, { method: 'DELETE' }));
+
+    action = new ResourceAction(url, defaultParams, super_res__assign({}, actionDefaults, { method: 'POST' }));
+    resource.save = action.makeRequest.bind(action);
+
+    action = new ResourceAction(url, defaultParams, super_res__assign({}, actionDefaults, { method: 'PUT' }));
+    resource.put = action.makeRequest.bind(action);
+
+    action = new ResourceAction(url, defaultParams, super_res__assign({}, actionDefaults, { method: 'DELETE' }));
+    resource.remove = action.makeRequest.bind(action);
     resource['delete'] = resource.remove;
+
     return resource;
   }
 
   super_res__superRes.resource = function (url, defaultParams, actions) {
-    var resource = buildDefaultActions(url);
+    var resource = generateDefaultActions(url, defaultParams);
     if (actions) {
       Object.getOwnPropertyNames(actions).forEach(function (name) {
-        resource[name] = buildAction(url, actions[name]);
+        resource[name] = new ResourceAction(url, defaultParams, actions[name]).makeRequest;
       });
     }
     return resource;
   };
 
-  super_res__superRes.proxyQ = function (qInstance) {
+  super_res__superRes.promiseWrapper = function promiseWrapper(promiseObj) {
     return function (resource) {
-      var proxiedResource = Object.assign({}, resource);
+      var proxiedResource = super_res__assign({}, resource);
       Object.getOwnPropertyNames(resource).forEach(function (name) {
         var actionFunction = proxiedResource[name];
         proxiedResource[name] = function () {
@@ -84,7 +130,8 @@
           }
 
           var promise = actionFunction.apply(proxiedResource, args);
-          return qInstance.when(promise);
+          //TODO am I swallowing rejected promises here?
+          return promiseObj.when(promise);
         };
       });
       return proxiedResource;
