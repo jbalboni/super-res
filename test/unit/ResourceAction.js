@@ -12,6 +12,8 @@ describe('ResourceAction', () => {
         get: stubFunction,
         put: stubFunction,
         set: stubFunction,
+        send: stubFunction,
+        query: stubFunction,
         accept: stubFunction,
         end: stubFunction,
         clearTimeout: stubFunction
@@ -21,7 +23,7 @@ describe('ResourceAction', () => {
     ResourceAction = proxyquire('../../src/ResourceAction', stubs);
   });
 
-  describe('superagent request is made', () => {
+  describe('get request with no data', () => {
     let result;
     let getSpy;
     let endSpy;
@@ -30,6 +32,8 @@ describe('ResourceAction', () => {
     beforeEach(() => {
       spy(stubs.superagent, 'get');
       spy(stubs.superagent, 'end');
+      spy(stubs.superagent, 'query');
+      spy(stubs.superagent, 'send');
       let resource = new ResourceAction(url, {}, {method: 'GET'});
       result = resource.makeRequest();
     });
@@ -39,6 +43,10 @@ describe('ResourceAction', () => {
     });
     it('should have called end', () => {
       expect(stubs.superagent.end.called).to.be.true;
+    });
+    it('should not have called query or send', () => {
+      expect(stubs.superagent.query.called).to.be.false;
+      expect(stubs.superagent.send.called).to.be.false;
     });
   });
 });
