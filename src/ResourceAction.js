@@ -39,10 +39,14 @@ export default class ResourceAction {
       currentRequest.clearTimeout();
     }
 
-    if (data && method === 'get') {
-      currentRequest = currentRequest.query(applyRequestTransforms(this.config.transformRequest, currentRequest, data));
-    } else if (data) {
-      currentRequest = currentRequest.send(applyRequestTransforms(this.config.transformRequest, currentRequest, data));
+
+    if (data) {
+      let transformedData = applyRequestTransforms(this.config.transformRequest, currentRequest, data);
+      if (method === 'get') {
+        currentRequest = currentRequest.query(transformedData);
+      } else {
+        currentRequest = currentRequest.send(transformedData);
+      }
     }
 
     return currentRequest;
