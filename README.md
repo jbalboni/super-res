@@ -13,12 +13,12 @@ This is patterned off of Angular's $resource service, except that it does not de
 
     myResource.get({id: 1});
     
-There is also a function called proxyQ, which will wrap the promises returned by each action with an instance of $q passed to it. This is helpful if you want to use it with Angular:
+There is also a function called promiseWrapper, which will wrap the promises returned by each action with an instance of $q passed to it. This is helpful if you want to use it with Angular:
 
     angular.module('test', []).factory('myResource', function ($q) {
         var superRes = require('super-res');
         
-        return superRes.proxyQ($q)(superRes.resource('/my-endpoint/:id'));
+        return superRes.promiseWrapper($q)(superRes.resource('/my-endpoint/:id'));
     });
     
     //somewhere else
@@ -28,7 +28,6 @@ The api is generally the same, but some things are not yet implemented. Here's w
 - caching
 - withCredentials
 - stripTrailingSlashes
-- tests
 - batching
 
 Differences from angular-resource:

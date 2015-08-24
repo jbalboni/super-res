@@ -14,7 +14,7 @@ function generateDefaultActions(url, defaultParams) {
   resource.get = action.makeRequest.bind(action);
   resource.query = resource.get;
 
-  action = new ResourceAction(url, defaultParams, assign({}, actionDefaults, {method: 'POST'}))
+  action = new ResourceAction(url, defaultParams, assign({}, actionDefaults, {method: 'POST'}));
   resource.save = action.makeRequest.bind(action);
 
   action = new ResourceAction(url, defaultParams, assign({}, actionDefaults, {method: 'PUT'}));
