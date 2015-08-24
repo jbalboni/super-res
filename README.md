@@ -11,7 +11,17 @@ This is patterned off of Angular's $resource service, except that it does not de
 
     var myResource = superRes.resource('/my-endpoint/:id')
 
-    myResource.get({id: 1});
+    myResource.get({id: 1})
+        .then(function (responseData) {
+            console.log(responseData);
+        });
+    
+    myResource.save({id: 1}, {content: 'some sort of content')
+        .then(function (responseData) {
+            console.log(responseData);
+        });
+    
+The options and interface defined in the [$resource doc](https://docs.angularjs.org/api/ngResource/service/$resource) is accurate (aside from the missing features and differences mentioned later)
     
 There is also a function called promiseWrapper, which will wrap the promises returned by each action with an instance of $q passed to it. This is helpful if you want to use it with Angular:
 
@@ -26,7 +36,6 @@ There is also a function called promiseWrapper, which will wrap the promises ret
 
 The api is generally the same, but some things are not yet implemented. Here's what's on the list to add:
 - caching
-- withCredentials
 - stripTrailingSlashes
 - batching
 
