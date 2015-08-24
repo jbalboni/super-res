@@ -18,7 +18,8 @@ describe('ResourceAction', () => {
         accept: stub().returnsThis(),
         end: stub().returnsThis(),
         clearTimeout: stub().returnsThis(),
-        timeout: stub().returnsThis()
+        timeout: stub().returnsThis(),
+        withCredentials: stub().returnsThis()
       }
     };
 
@@ -244,5 +245,21 @@ describe('ResourceAction', () => {
         done();
       }).catch(done);
     });
+  });
+
+  describe('request with withCredentials', () => {
+    let result;
+    let headers = {'Content-Type': 'application/json'};
+
+    const url = 'http://example.com/posts/';
+    beforeEach(() => {
+      let resource = new ResourceAction(url, {}, {method: 'POST', withCredentials: true});
+      result = resource.makeRequest();
+    });
+
+    it('should have called withCredentials', () => {
+      expect(stubs.superagent.withCredentials.called).to.be.true;
+    });
+
   });
 });

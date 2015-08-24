@@ -2,5 +2,6 @@ export default actionDefaults = {
   method: 'GET',
   responseType: 'json',
   transformRequest: [],
-  transformResponse: []
+  transformResponse: [],
+  withCredentials: false
 };

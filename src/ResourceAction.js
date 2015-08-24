@@ -39,6 +39,9 @@ export default class ResourceAction {
       currentRequest.clearTimeout();
     }
 
+    if (this.config.withCredentials) {
+      currentRequest = currentRequest.withCredentials();
+    }
 
     if (data) {
       let transformedData = applyRequestTransforms(this.config.transformRequest, currentRequest, data);
