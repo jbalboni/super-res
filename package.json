@@ -14,7 +14,7 @@
     "url": "https://github.com/jbalboni/super-res.git"
   },
   "files": [
-    "app"
+    "dist"
   ],
   "keywords": [
     "superagent",
