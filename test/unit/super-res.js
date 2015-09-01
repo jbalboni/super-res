@@ -1,19 +1,24 @@
 import proxyquire from 'proxyquire';
-var stubFunction = function () { return stubs.superagent; };
-var stubs = {
-  superagent: {
-    get: stubFunction,
-    put: stubFunction,
-    set: stubFunction,
-    accept: stubFunction,
-    end: stubFunction
-  }
-};
-let superRes = proxyquire('../../src/super-res', stubs);
-
 import Q from 'q';
 
-describe('resource', () => {
+describe('resource: ', () => {
+  let actionStub;
+  let superRes;
+
+  beforeEach(() => {
+    actionStub = {
+      makeRequest: stub()
+    };
+
+    let stubs = {
+      './ResourceAction.js': function () {
+        return actionStub;
+      }
+    };
+    superRes = proxyquire('../../src/super-res', stubs);
+
+  });
+
   describe('Default actions are defined', () => {
     let resource;
     beforeEach(() => {
@@ -51,6 +56,43 @@ describe('resource', () => {
     it('should have myFunction', () => {
       expect(resource.myFunction).to.be.a('function');
     });
+
+  });
+
+  describe('Call promiseWrapper with successful request', () => {
+    let resource;
+    let qStub;
+    beforeEach(() => {
+      qStub = spy();
+      resource = superRes.promiseWrapper(qStub)(superRes.resource('http://example.com/posts/:id'));
+      actionStub.makeRequest.returns(Q.when({test: 1}));
+      resource.get({id: 1});
+    });
+
+    it('should wrap each action in a promise', () => {
+      expect(qStub.calledOnce).to.be.true;
+    });
+
+  });
+
+  describe('Call promiseWrapper with failed request', () => {
+    let resource;
+    let promise;
+
+    beforeEach(() => {
+      resource = superRes.promiseWrapper(Q)(superRes.resource('http://example.com/posts/:id'));
+      actionStub.makeRequest.returns(Q.reject({test: 1}));
+      promise = resource.get({id: 1});
+    });
+
+    it('should return a rejected promise', (done) => {
+      promise.then((res) => {
+        expect.fail();
+        done();
+      }, () => {
+        done();
+      });
+    })
 
   });
 });

@@ -4,13 +4,17 @@ import Q from 'q';
 describe('ResourceAction', () => {
   let ResourceAction;
   let stubs;
+  let cacheStub;
 
   beforeEach(() => {
-    var stubFunction = function () { return this; };
+    cacheStub = {
+      get: stub(),
+      set: stub()
+    };
     stubs = {
       superagent: {
         get: stub().returnsThis(),
-        post:stub().returnsThis(),
+        post: stub().returnsThis(),
         put: stub().returnsThis(),
         set: stub().returnsThis(),
         send: stub().returnsThis(),
@@ -20,6 +24,9 @@ describe('ResourceAction', () => {
         clearTimeout: stub().returnsThis(),
         timeout: stub().returnsThis(),
         withCredentials: stub().returnsThis()
+      },
+      'cache-manager': {
+        caching: stub().returns(cacheStub)
       }
     };
 
@@ -261,5 +268,77 @@ describe('ResourceAction', () => {
       expect(stubs.superagent.withCredentials.called).to.be.true;
     });
 
+  });
+
+  describe('get request with built in cache', () => {
+    let result;
+    let queryData = {test: 'something', test2: 'something else'};
+    let mockCachedResponse = {result: 'data'};
+
+    const url = 'http://example.com/posts/';
+    beforeEach(() => {
+      let resource = new ResourceAction(url, {}, {method: 'GET', cache: true});
+      cacheStub.get.callsArgWith(1, null, mockCachedResponse);
+      result = resource.makeRequest(null, queryData);
+    });
+
+    it('should have returned cached value', (done) => {
+      result.then(function (res) {
+        expect(res).to.equal(mockCachedResponse);
+        done();
+      }).catch(done);
+    });
+
+    it('should not have called superagent', () => {
+      expect(stubs.superagent.get.called).to.be.false;
+    });
+  });
+
+  describe('get request with custom cache', () => {
+    let result;
+    let localCacheStub;
+    let queryData = {test: 'something', test2: 'something else'};
+    let mockCachedResponse = {result: 'data'};
+
+    const url = 'http://example.com/posts/';
+    beforeEach(() => {
+      localCacheStub = {
+        get: stub(),
+        set: stub()
+      };
+      let resource = new ResourceAction(url, {}, {method: 'GET', cache: localCacheStub});
+      localCacheStub.get.callsArgWith(1, null, mockCachedResponse);
+      result = resource.makeRequest(null, queryData);
+    });
+
+    it('should have returned cached value', (done) => {
+      result.then(function (res) {
+        expect(res).to.equal(mockCachedResponse);
+        done();
+      }).catch(done);
+    });
+
+    it('should not have called superagent', () => {
+      expect(stubs.superagent.get.called).to.be.false;
+    });
+  });
+
+  describe('get request with built in cache and no data', (done) => {
+    let result;
+    let queryData = {test: 'something', test2: 'something else'};
+
+    const url = 'http://example.com/posts/';
+    beforeEach(() => {
+      let resource = new ResourceAction(url, {}, {method: 'GET', cache: true});
+      cacheStub.get.callsArgWith(1, null, null);
+      result = resource.makeRequest(null, queryData);
+    });
+
+    it('should have called set', () => {
+      result.then(function (res) {
+        expect(cacheStub.set.called).to.be.true;
+        done();
+      }).catch(done);
+    });
   });
 });

@@ -3,6 +3,7 @@ var assign = assign || require('object.assign');
 import Q from 'q';
 import request from 'superagent';
 import Route from 'route-parser';
+import cacheManager from 'cache-manager';
 
 import actionDefaults from './actionDefaults.js';
 
@@ -23,6 +24,13 @@ export default class ResourceAction {
     this.config = assign({url: url}, actionDefaults, action);
     this.route = new Route(this.config.url);
     this.defaultParams = defaultParams;
+
+    if (this.config.cache === true) {
+      this.config.cache = cacheManager.caching({store: 'memory', max: 100, ttl: 1200});
+    }
+  }
+  getCacheKey(params, data) {
+    return this.route.reverse(params) + JSON.stringify(data);
   }
   buildRequest(params, data) {
     let method = this.config.method.toLowerCase();
@@ -56,15 +64,40 @@ export default class ResourceAction {
   }
   makeRequest(params, data) {
     let deferred = Q.defer();
+    let fullParams = assign({}, this.defaultParams, params);
 
-    this.buildRequest(assign({}, this.defaultParams, params), data)
-      .end((err, res) => {
+    let doRequest = () => {
+      this.buildRequest(fullParams, data)
+          .end((err, res) => {
+            if (err) {
+              deferred.reject(err);
+            } else {
+              let transformedReponse = applyResponseTransforms(this.config.transformResponse, res);
+
+              if (this.config.cache) {
+                this.config.cache.set(this.getCacheKey(fullParams, data), transformedReponse);
+              }
+
+              deferred.resolve(transformedReponse);
+            }
+          });
+    };
+
+    if (this.config.cache && this.config.method.toLowerCase() === 'get') {
+      let key = this.getCacheKey(fullParams, data);
+      this.config.cache.get(key, (err, result) => {
         if (err) {
           deferred.reject(err);
+        } else if (result) {
+          deferred.resolve(result);
         } else {
-          deferred.resolve(applyResponseTransforms(this.config.transformResponse, res));
+          doRequest();
         }
-      });
+      })
+    } else {
+      doRequest();
+    }
+
     return deferred.promise;
   }
 }

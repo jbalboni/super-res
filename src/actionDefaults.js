@@ -3,5 +3,6 @@ export default actionDefaults = {
   responseType: 'json',
   transformRequest: [],
   transformResponse: [],
-  withCredentials: false
+  withCredentials: false,
+  cache: null
 };

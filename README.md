@@ -23,20 +23,24 @@ This is patterned off of Angular's $resource service, except that it does not de
     
 The options and interface defined in the [$resource doc](https://docs.angularjs.org/api/ngResource/service/$resource) is accurate (aside from the missing features and differences mentioned later)
     
+## Caching
+
+Caching is handled by the [cache-manager](https://www.npmjs.com/package/cache-manager) node module. If you create an action with the cache option set to true, 
+it will use cache-manager's default in-memory cache with a max size of 100 items and a max age of 20 minutes. Or, you can provide your own cache object, 
+so long as it follows the cache-manager interface.
+
 There is also a function called promiseWrapper, which will wrap the promises returned by each action with an instance of $q passed to it. This is helpful if you want to use it with Angular:
 
     angular.module('test', []).factory('myResource', function ($q) {
         var superRes = require('super-res');
         
-        return superRes.promiseWrapper($q)(superRes.resource('/my-endpoint/:id'));
+        return superRes.promiseWrapper($q.when)(superRes.resource('/my-endpoint/:id'));
     });
     
     //somewhere else
     myResource.get({id: 1}; // returns a promise wrapped in $q.when() to hook into digest cycle
 
 The api is generally the same, but some things are not yet implemented. Here's what's on the list to add:
-- caching
-- stripTrailingSlashes
 - batching
 
 Differences from angular-resource:

@@ -37,15 +37,14 @@ superRes.resource = (url, defaultParams, actions) => {
   return resource;
 };
 
-superRes.promiseWrapper = function promiseWrapper(promiseObj) {
+superRes.promiseWrapper = function promiseWrapper(wrapperFunc) {
   return (resource) => {
     let proxiedResource = assign({}, resource);
     Object.getOwnPropertyNames(resource).forEach((name) => {
       let actionFunction = proxiedResource[name];
       proxiedResource[name] = function (...args) {
         let promise = actionFunction.apply(proxiedResource, args);
-        //TODO am I swallowing rejected promises here?
-        return promiseObj.when(promise);
+        return wrapperFunc(promise);
       }
     });
     return proxiedResource;

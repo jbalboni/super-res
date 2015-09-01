@@ -73,6 +73,7 @@
     ]
   },
   "dependencies": {
+    "cache-manager": "^1.1.0",
     "object.assign": "^3.0.1",
     "q": "^1.4.1",
     "route-parser": "0.0.4",
