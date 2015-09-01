@@ -154,7 +154,10 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     var resource = generateDefaultActions(url, defaultParams);
     if (actions) {
       Object.getOwnPropertyNames(actions).forEach(function (name) {
-        resource[name] = new ResourceAction(url, defaultParams, actions[name]).makeRequest;
+        var action = new ResourceAction(url, defaultParams, actions[name]);
+        resource[name] = function () {
+          action.makeRequest.apply(action, arguments);
+        };
       });
     }
     return resource;

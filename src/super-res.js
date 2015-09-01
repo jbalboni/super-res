@@ -31,7 +31,10 @@ superRes.resource = (url, defaultParams, actions) => {
   let resource = generateDefaultActions(url, defaultParams);
   if (actions) {
     Object.getOwnPropertyNames(actions).forEach((name) => {
-      resource[name] = (new ResourceAction(url, defaultParams, actions[name])).makeRequest;
+      let action = new ResourceAction(url, defaultParams, actions[name]);
+      resource[name] = function (...args) {
+        action.makeRequest(...args);
+      }
     });
   }
   return resource;
