@@ -1,27 +1,32 @@
 var assign = assign || require('object.assign');
 
 import Q from 'q';
-import request from 'superagent';
 import Route from 'route-parser';
 import cacheManager from 'cache-manager';
 
-import actionDefaults from './actionDefaults.js';
+import request from './request.js';
+import {assignOptions} from './utils.js'
 
-function applyResponseTransforms(transforms, response) {
-  return transforms.reduceRight(function (memo, transform) {
-    return transform(memo, response.header);
-  }, response.body);
-}
+const actionDefaults = {
+  method: 'GET',
+  transformRequest: [],
+  cache: null
+};
 
-function applyRequestTransforms(transforms, request, data) {
-  return transforms.reduceRight(function (memo, transform) {
-    return transform(memo, request.header);
-  }, data);
+function moveDataToParam(data, header) {
+  data && this.query(data);
+  return null
 }
 
 export default class ResourceAction {
   constructor(url, defaultParams, action) {
-    this.config = assign({url: url}, actionDefaults, action);
+    this.config = assignOptions({url: url}, actionDefaults, action);
+
+    if(this.config.method === 'GET') {
+      this.config.transformRequest || (this.config.transformRequest = []);
+      this.config.transformRequest.push(moveDataToParam);
+    }
+
     this.route = new Route(this.config.url);
     this.defaultParams = defaultParams;
 
@@ -34,30 +39,27 @@ export default class ResourceAction {
   }
   buildRequest(params, data) {
     let method = this.config.method.toLowerCase();
-    let currentRequest = request[method === 'delete' ? 'del' : method](this.route.reverse(params));
+    let url = this.route.reverse(params);
 
-    currentRequest = currentRequest.accept(this.config.responseType);
-    if (this.config.headers) {
-      currentRequest = currentRequest.set(this.config.headers);
+    for(let i in this.route.match(url)) {
+      delete params[i];
+    }
+    let empty = true;
+    if(params) {
+      for(let i in params) {
+        empty = false;
+        break;
+      }
     }
 
-    if (this.config.timeout) {
-      currentRequest.timeout(this.config.timeout);
-    } else {
-      currentRequest.clearTimeout();
-    }
+    let currentRequest = request[method === 'delete' ? 'del' : method](url, null, null, this.config);
 
-    if (this.config.withCredentials) {
-      currentRequest = currentRequest.withCredentials();
+    if(!empty) {
+      currentRequest.query(params);
     }
 
     if (data) {
-      let transformedData = applyRequestTransforms(this.config.transformRequest, currentRequest, data);
-      if (method === 'get') {
-        currentRequest = currentRequest.query(transformedData);
-      } else {
-        currentRequest = currentRequest.send(transformedData);
-      }
+      currentRequest.send(data);
     }
 
     return currentRequest;
@@ -72,13 +74,12 @@ export default class ResourceAction {
             if (err) {
               deferred.reject(err);
             } else {
-              let transformedReponse = applyResponseTransforms(this.config.transformResponse, res);
 
               if (this.config.cache) {
-                this.config.cache.set(this.getCacheKey(fullParams, data), transformedReponse);
+                this.config.cache.set(this.getCacheKey(fullParams, data), res.body);
               }
 
-              deferred.resolve(transformedReponse);
+              deferred.resolve(res.body);
             }
           });
     };
