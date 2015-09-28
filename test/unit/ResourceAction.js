@@ -1,10 +1,12 @@
 import proxyquire from 'proxyquire';
 import Q from 'q';
+import Route from 'route-parser';
 
 describe('ResourceAction', () => {
   let ResourceAction;
   let stubs;
   let cacheStub;
+  let request;
 
   beforeEach(() => {
     cacheStub = {
@@ -12,7 +14,7 @@ describe('ResourceAction', () => {
       set: stub()
     };
     stubs = {
-      superagent: {
+      './request.js': {
         get: stub().returnsThis(),
         post: stub().returnsThis(),
         put: stub().returnsThis(),
@@ -31,42 +33,50 @@ describe('ResourceAction', () => {
     };
 
     ResourceAction = proxyquire('../../src/ResourceAction', stubs);
+    request = stubs['./request.js'];
   });
 
   describe('get request with no data', () => {
-    let result;
+    let result, returnSpy;
 
     const url = 'http://example.com/posts/';
-    beforeEach(() => {
+    beforeEach((done) => {
+      request.end = stub().yields(null, {body: {foo: 'bar'}}).returnsThis();
+      returnSpy = spy();
       let resource = new ResourceAction(url, {}, {method: 'GET'});
       result = resource.makeRequest();
+      result.then((...args)=>{
+        returnSpy(...args);
+        done();
+      })
     });
 
     it('should have called get with url', () => {
-      expect(stubs.superagent.get.calledWith(url)).to.be.true;
+      expect(request.get.calledWith(url)).to.be.true;
     });
     it('should have called end', () => {
-      expect(stubs.superagent.end.called).to.be.true;
+      expect(request.end.called).to.be.true;
     });
-    it('should not have called query or send', () => {
-      expect(stubs.superagent.query.called).to.be.false;
-      expect(stubs.superagent.send.called).to.be.false;
-    });
+    it('should return body', () => {
+      expect(returnSpy.calledWith({foo: 'bar'})).to.be.true;
+    })
   });
 
   describe('get request with data', () => {
-    let result;
+    let result, resource;
     let queryData = {test: 'something', test2: 'something else'};
 
     const url = 'http://example.com/posts/';
     beforeEach(() => {
-      let resource = new ResourceAction(url, {}, {method: 'GET'});
+      resource = new ResourceAction(url, {}, {method: 'GET'});
       result = resource.makeRequest(null, queryData);
     });
 
-    it('should have called query', () => {
-      expect(stubs.superagent.query.calledWith(queryData)).to.be.true;
+    it('should have a request preprocess hook', () => {
+      expect(resource.config.transformRequest).to.have.length(1);
+      expect(resource.config.transformRequest[0].name).to.equal('moveDataToParam');
     });
+
   });
 
   describe('get request with params and data', () => {
@@ -76,14 +86,15 @@ describe('ResourceAction', () => {
     const url = 'http://example.com/posts/:someParam';
     beforeEach(() => {
       let resource = new ResourceAction(url, {}, {method: 'GET'});
-      result = resource.makeRequest({someParam: 'testing'}, queryData);
+      result = resource.makeRequest({someParam: 'testing', foo: 'bar'}, queryData);
+    });
+
+    it('should have replaced the url token', () => {
+      expect(request.get.calledWith('http://example.com/posts/testing')).to.be.true;
     });
 
     it('should have called query', () => {
-      expect(stubs.superagent.query.calledWith(queryData)).to.be.true;
-    });
-    it('should have replaced the url token', () => {
-      expect(stubs.superagent.get.calledWith('http://example.com/posts/testing')).to.be.true;
+      expect(request.query.calledWith({foo: 'bar'})).to.be.true;
     });
   });
 
@@ -98,174 +109,79 @@ describe('ResourceAction', () => {
     });
 
     it('should have called post with url', () => {
-      expect(stubs.superagent.post.calledWith(url)).to.be.true;
+      expect(request.post.calledWith(url)).to.be.true;
     });
     it('should have called send', () => {
-      expect(stubs.superagent.send.calledWith(postData)).to.be.true;
+      expect(request.send.calledWith(postData)).to.be.true;
     });
     it('should not have called query', () => {
-      expect(stubs.superagent.query.called).to.be.false;
+      expect(request.query.called).to.be.false;
     });
   });
 
-  describe('request with response type', () => {
+  describe('post request with @ params and data', () => {
     let result;
+    let postData = {_id:'hashcode', test: 'something', test2: 'something else'};
 
-    const url = 'http://example.com/posts/';
+    const url = 'http://example.com/posts/:id';
     beforeEach(() => {
-      let resource = new ResourceAction(url, {}, {method: 'POST', responseType: 'json'});
-      result = resource.makeRequest();
+      let resource = new ResourceAction(url, {id: '@_id'}, {method: 'POST'});
+      result = resource.makeRequest(postData);
     });
 
-    it('should have called accept with json', () => {
-      expect(stubs.superagent.accept.calledWith('json')).to.be.true;
+    it('should have called post with url which is picked from data.', () => {
+      expect(request.post.calledWith('http://example.com/posts/hashcode')).to.be.true;
+    });
+    it('should have called send', () => {
+      expect(request.send.calledWith(postData)).to.be.true;
+    });
+    it('should not have called query', () => {
+      expect(request.query.called).to.be.false;
     });
   });
 
-  describe('request with headers', () => {
+  describe('post request with factory params and data', () => {
     let result;
-    let headers = {'Content-Type': 'application/json'};
+    let postData = {_id:'hashcode', test: 'something', test2: 'something else'};
 
-    const url = 'http://example.com/posts/';
+    const url = 'http://example.com/posts/:id';
     beforeEach(() => {
-      let resource = new ResourceAction(url, {}, {method: 'POST', responseType: 'json', headers: headers});
-      result = resource.makeRequest();
+      let resource = new ResourceAction(url, {id: () => 'foo'}, {method: 'POST'});
+      result = resource.makeRequest(postData);
     });
 
-    it('should have called set', () => {
-      expect(stubs.superagent.set.calledWith(headers)).to.be.true;
+    it('should have called post with url', () => {
+      expect(request.post.calledWith('http://example.com/posts/foo')).to.be.true;
+    });
+    it('should have called send', () => {
+      expect(request.send.calledWith(postData)).to.be.true;
+    });
+    it('should not have called query', () => {
+      expect(request.query.called).to.be.false;
     });
   });
 
-  describe('request with timeout', () => {
+  describe('post request with built in cache', () => {
     let result;
-    let headers = {'Content-Type': 'application/json'};
+    let queryData = {test: 'something', test2: 'something else'};
+    let mockCachedResponse = {result: 'data'};
 
     const url = 'http://example.com/posts/';
-    beforeEach(() => {
-      let resource = new ResourceAction(url, {}, {method: 'POST', timeout: 30});
-      result = resource.makeRequest();
-    });
-
-    it('should have called timeout', () => {
-      expect(stubs.superagent.timeout.calledWith(30)).to.be.true;
-    });
-  });
-
-  describe('request without timeout', () => {
-    let result;
-    let headers = {'Content-Type': 'application/json'};
-
-    const url = 'http://example.com/posts/';
-    beforeEach(() => {
-      let resource = new ResourceAction(url, {}, {method: 'POST'});
-      result = resource.makeRequest();
-    });
-
-    it('should not have called timeout', () => {
-      expect(stubs.superagent.timeout.called).to.be.false;
-    });
-
-    it('should have called clearTimeout', () => {
-      expect(stubs.superagent.clearTimeout.called).to.be.true;
-    });
-  });
-
-  describe('post request that is successful', () => {
-    let result;
-    let returnData = {body: {test: 'something', test2: 'something else'}};
-
-    const url = 'http://example.com/posts/';
-    beforeEach(() => {
-      stubs.superagent.end = stub().yields(null, returnData);
-      let resource = new ResourceAction(url, {}, {method: 'POST'});
-      result = resource.makeRequest();
-    });
-
-    it('should have called end', () => {
-      expect(stubs.superagent.end.called).to.be.true;
-    });
-
-    it('should have resolved promise', (done) => {
-      result.then(function (res) {
-        expect(res).to.equal(returnData.body);
+    beforeEach((done) => {
+      request.end = stub().yields(null, {body: mockCachedResponse}).returnsThis();
+      let resource = new ResourceAction(url, {}, {method: 'POST', cache: true});
+      result = resource.makeRequest(null, queryData);
+      result = result.then((res) => {
         done();
+        return res;
       })
-      .catch(done);
-    });
-  });
-
-  describe('post request with error', () => {
-    let result;
-    let errorData = {message: 'Some error'};
-
-    const url = 'http://example.com/posts/';
-    beforeEach(() => {
-      stubs.superagent.end = stub().yields(errorData, {});
-      let resource = new ResourceAction(url, {}, {method: 'POST'});
-      result = resource.makeRequest();
     });
 
-    it('should have called end', () => {
-      expect(stubs.superagent.end.called).to.be.true;
-    });
-
-    it('should have rejected promise', (done) => {
-      result
-          .then(done)
-          .catch(function (err) {
-            expect(err).to.equal(errorData);
-            done();
-          });
-    });
-  });
-
-  describe('post with request transform', () => {
-    let result;
-    let transReq = {data: 'something'};
-
-    const url = 'http://example.com/posts/';
-    beforeEach(() => {
-      let resource = new ResourceAction(url, {}, {method: 'POST', transformRequest: [(req) => transReq]});
-      result = resource.makeRequest(null, {data: 1});
-    });
-
-    it('should have transformed request', () => {
-      expect(stubs.superagent.send.calledWith(transReq)).to.be.true;
-    });
-  });
-
-  describe('post with respose transform', () => {
-    let result;
-    let transResp = {data: 'something'};
-
-    const url = 'http://example.com/posts/';
-    beforeEach(() => {
-      stubs.superagent.end = stub().yields(null, {body: {myData: 1}});
-      let resource = new ResourceAction(url, {}, {method: 'POST', transformResponse: [(resp) => transResp]});
-      result = resource.makeRequest();
-    });
-
-    it('should have transformed response', (done) => {
+    it('should have returned cached value', (done) => {
       result.then(function (res) {
-        expect(res).to.equal(transResp);
+        expect(cacheStub.set.calledWith('{}'+JSON.stringify(queryData))).to.be.true;
         done();
       }).catch(done);
-    });
-  });
-
-  describe('request with withCredentials', () => {
-    let result;
-    let headers = {'Content-Type': 'application/json'};
-
-    const url = 'http://example.com/posts/';
-    beforeEach(() => {
-      let resource = new ResourceAction(url, {}, {method: 'POST', withCredentials: true});
-      result = resource.makeRequest();
-    });
-
-    it('should have called withCredentials', () => {
-      expect(stubs.superagent.withCredentials.called).to.be.true;
     });
 
   });
@@ -290,7 +206,7 @@ describe('ResourceAction', () => {
     });
 
     it('should not have called superagent', () => {
-      expect(stubs.superagent.get.called).to.be.false;
+      expect(request.get.called).to.be.false;
     });
   });
 
@@ -319,7 +235,7 @@ describe('ResourceAction', () => {
     });
 
     it('should not have called superagent', () => {
-      expect(stubs.superagent.get.called).to.be.false;
+      expect(request.get.called).to.be.false;
     });
   });
 
