@@ -148,6 +148,10 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     return null;
   }
 
+  function getCacheKey(params, data) {
+    return JSON.stringify(params || {}) + JSON.stringify(data || {});
+  }
+
   var ResourceAction = (function () {
     function ResourceAction(url, defaultParams, action) {
       _classCallCheck(this, ResourceAction);
@@ -157,10 +161,25 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
       if (this.config.method === 'GET') {
         this.config.transformRequest || (this.config.transformRequest = []);
         this.config.transformRequest.push(moveDataToParam);
+      } else if (this.config.method === 'POST' || this.config.method === 'PUT' || this.config.method === 'PATCH') {
+        this.hasData = true;
       }
 
       this.route = new Route(this.config.url);
       this.defaultParams = defaultParams;
+
+      this.extraParams = {};
+      for (var i in defaultParams) {
+        var param = defaultParams[i];
+        if (typeof param === 'function') {
+          this.extraParams[i] = param;
+        } else if (typeof param === 'string' && param[0] === '@') {
+          this.extraParams[i] = param.slice(1);
+        } else {
+          continue;
+        }
+        delete this.defaultParams[i];
+      }
 
       if (this.config.cache === true) {
         this.config.cache = cacheManager.caching({ store: 'memory', max: 100, ttl: 1200 });
@@ -168,11 +187,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     }
 
     _createClass(ResourceAction, [{
-      key: 'getCacheKey',
-      value: function getCacheKey(params, data) {
-        return this.route.reverse(params) + JSON.stringify(data);
-      }
-    }, {
       key: 'buildRequest',
       value: function buildRequest(params, data) {
         var method = this.config.method.toLowerCase();
@@ -207,7 +221,25 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
         var _this = this;
 
         var deferred = Q.defer();
-        var fullParams = ResourceAction_js__assign({}, this.defaultParams, params);
+
+        if (arguments.length == 1 && this.hasData) {
+          data = params;
+          params = undefined;
+        }
+
+        var extraP = {};
+        for (var i in this.extraParams) {
+          var p = this.extraParams[i],
+              result = undefined;
+          if (typeof p === 'function') {
+            result = p();
+          } else {
+            result = data[p];
+          }
+          result && (extraP[i] = result);
+        }
+
+        var fullParams = ResourceAction_js__assign({}, this.defaultParams, extraP, params);
 
         var doRequest = function doRequest() {
           _this.buildRequest(fullParams, data).end(function (err, res) {
@@ -216,7 +248,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
             } else {
 
               if (_this.config.cache) {
-                _this.config.cache.set(_this.getCacheKey(fullParams, data), res.body);
+                _this.config.cache.set(getCacheKey(fullParams, data), res.body);
               }
 
               deferred.resolve(res.body);
@@ -225,7 +257,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
         };
 
         if (this.config.cache && this.config.method.toLowerCase() === 'get') {
-          var key = this.getCacheKey(fullParams, data);
+          var key = getCacheKey(fullParams, data);
           this.config.cache.get(key, function (err, result) {
             if (err) {
               deferred.reject(err);
