@@ -3,9 +3,16 @@ import proxyquire from 'proxyquire';
 describe('request', ()=>{
   let request;
   let stubs;
+  let cacheStub;
+  let requestIns;
 
   beforeEach(() => {
-    let r = {
+    cacheStub = {
+      get: stub(),
+      set: stub()
+    };
+
+    requestIns = {
       set: stub().returnsThis(),
       send: stub().returnsThis(),
       query: stub().returnsThis(),
@@ -17,8 +24,10 @@ describe('request', ()=>{
     };
 
     stubs = {
-      request: r,
-      superagent: stub().returns(r)
+      superagent: stub().returns(requestIns),
+      'cache-manager': {
+        caching: stub().returns(cacheStub)
+      }
     };
 
     request = proxyquire('../../src/request', stubs);
@@ -35,7 +44,7 @@ describe('request', ()=>{
     });
 
     it('should have called accept with json', () => {
-      expect(stubs.request.accept.calledWith('text/plain')).to.be.true;
+      expect(requestIns.accept.calledWith('text/plain')).to.be.true;
     });
   });
 
@@ -49,7 +58,7 @@ describe('request', ()=>{
     });
 
     it('should have called set', () => {
-      expect(stubs.request.set.calledWith(headers)).to.be.true;
+      expect(requestIns.set.calledWith(headers)).to.be.true;
     });
   });
 
@@ -62,7 +71,7 @@ describe('request', ()=>{
     });
 
     it('should have called timeout', () => {
-      expect(stubs.request.timeout.calledWith(30)).to.be.true;
+      expect(requestIns.timeout.calledWith(30)).to.be.true;
     });
   });
 
@@ -75,11 +84,11 @@ describe('request', ()=>{
     });
 
     it('should not have called timeout', () => {
-      expect(stubs.request.timeout.called).to.be.false;
+      expect(requestIns.timeout.called).to.be.false;
     });
 
     it('should have called clearTimeout', () => {
-      expect(stubs.request.clearTimeout.called).to.be.true;
+      expect(requestIns.clearTimeout.called).to.be.true;
     });
   });
 
@@ -93,7 +102,7 @@ describe('request', ()=>{
     });
 
     it('should have called withCredentials', () => {
-      expect(stubs.request.withCredentials.called).to.be.true;
+      expect(requestIns.withCredentials.called).to.be.true;
     });
 
   });
@@ -104,7 +113,7 @@ describe('request', ()=>{
 
     const url = 'http://example.com/posts/';
     beforeEach((done) => {
-      originalEnd = stubs.request.end = stub().yields(null, returnData).returnsThis();
+      originalEnd = requestIns.end = stub().yields(null, returnData).returnsThis();
       callback = spy();
       result = request.post(url, (...args) => {
         callback(...args);
@@ -127,7 +136,7 @@ describe('request', ()=>{
 
     const url = 'http://example.com/posts/';
     beforeEach((done) => {
-      originalEnd = stubs.request.end = stub().yields(errorData, {}).returnsThis();
+      originalEnd = requestIns.end = stub().yields(errorData, {}).returnsThis();
       callback = spy();
       result = request.post(url, {foo: 'bar'}, (...args) => {
         callback(...args);
@@ -151,12 +160,12 @@ describe('request', ()=>{
     const url = 'http://example.com/get/';
     beforeEach((done) => {
       sendSpy = spy();
-      stubs.request.send = function (data) {
+      requestIns.send = function (data) {
         this._data = data;
         sendSpy(data);
         return this;
       };
-      stubs.request.end = stub().yields(null, {}).returnsThis();
+      requestIns.end = stub().yields(null, {}).returnsThis();
       result = request.get(url, transReq, () => done(), {transformRequest: [function (data, header) {
         this.query(data);
         return null;
@@ -168,7 +177,7 @@ describe('request', ()=>{
     });
 
     it('should have transformed request', () => {
-      expect(stubs.request.query.calledWith(transReq)).to.be.true;
+      expect(requestIns.query.calledWith(transReq)).to.be.true;
     });
 
     it('should have _data cleared', () => {
@@ -182,11 +191,11 @@ describe('request', ()=>{
 
     const url = 'http://example.com/posts/';
     beforeEach((done) => {
-      stubs.request.send = function (data) {
+      requestIns.send = function (data) {
         this._data = data;
         return this;
       };
-      stubs.request.end = stub().yields(null, {}).returnsThis();
+      requestIns.end = stub().yields(null, {}).returnsThis();
       result = request.post(url, {data: 1}, () => done(), {transformRequest: [(req) => transReq]});
     });
 
@@ -201,7 +210,7 @@ describe('request', ()=>{
 
     const url = 'http://example.com/posts/';
     beforeEach((done) => {
-      stubs.request.send = function (data) {
+      requestIns.send = function (data) {
         this._data = data;
         return this;
       };
@@ -236,7 +245,7 @@ describe('request', ()=>{
 
     const url = 'http://example.com/posts/';
     beforeEach((done) => {
-      stubs.request.end = stub().yields(null, {body: {myData: 1}});
+      requestIns.end = stub().yields(null, {body: {myData: 1}});
       returnSpy = spy();
       result = request.post(url, {}, (...args)=>{
         returnSpy(...args);
@@ -255,7 +264,7 @@ describe('request', ()=>{
 
     const url = 'http://example.com/posts/';
     beforeEach((done) => {
-      stubs.request.end = stub().yields(null, {body: {myData: 1}});
+      requestIns.end = stub().yields(null, {body: {myData: 1}});
       returnSpy = spy();
       result = request.post(url, {}, (...args)=>{
         returnSpy(...args);
@@ -276,7 +285,7 @@ describe('request', ()=>{
 
     const url = 'http://example.com/posts/';
     beforeEach((done) => {
-      stubs.request.end = stub().yields({body: {myData: 1}});
+      requestIns.end = stub().yields({body: {myData: 1}});
       returnSpy = spy();
       result = request.post(url, {}, (...args) => {
         returnSpy(...args);
@@ -286,6 +295,136 @@ describe('request', ()=>{
 
     it('should have transformed response', () => {
       expect(returnSpy.calledWith(transResp)).to.be.true;
+    });
+  });
+
+
+  describe('post request with built in cache', () => {
+    let result;
+    let queryData = {test: 'something', test2: 'something else'};
+    let mockCachedResponse = {result: 'data'};
+
+    const url = 'http://example.com/posts/';
+    beforeEach((done) => {
+      requestIns.url = url;
+      requestIns._query = {};
+      requestIns._data = queryData;
+      requestIns.end = stub().yields(null, {body: mockCachedResponse});
+      result = request.post(url, queryData, () => {
+        done();
+      }, {cache: true});
+    });
+
+    it('should have called superagent', () => {
+      expect(stubs.superagent.calledWith('POST', url)).to.be.true;
+    });
+
+    it('should have sent data', () => {
+      expect(requestIns.send.calledWith(queryData)).to.be.true;
+    });
+
+    it('should have returned cached value', () => {
+      expect(cacheStub.set.calledWith(`${url}_{}_${JSON.stringify(queryData)}`, {body: mockCachedResponse})).to.be.true;
+    });
+
+  });
+
+  describe('get request with built in cache', () => {
+    let result, originalEnd, resultSpy;
+    let queryData = {test: 'something', test2: 'something else'};
+    let mockCachedResponse = {result: 'data'};
+
+    const url = 'http://example.com/posts/';
+    beforeEach((done) => {
+      originalEnd = requestIns.end;
+      requestIns.method = 'GET';
+      cacheStub.get.callsArgWith(1, null, {body: mockCachedResponse});
+      resultSpy = spy();
+
+      result = request.get(url, null, null, {cache: true});
+      result.query(queryData);
+      result.end((err, res) => {
+        resultSpy(res);
+        done();
+      });
+    });
+
+    it('should have returned cached value', () => {
+      expect(resultSpy.calledWith({body: mockCachedResponse})).to.be.true;
+    });
+
+    it('should not have called superagent original request', () => {
+      expect(originalEnd.called).to.be.false;
+    });
+  });
+
+  describe('get request with custom cache', () => {
+    let result, originalEnd, resultSpy;
+    let localCacheStub;
+    let queryData = {test: 'something', test2: 'something else'};
+    let mockCachedResponse = {body: {result: 'data'}};
+
+    const url = 'http://example.com/posts/';
+    beforeEach((done) => {
+      localCacheStub = {
+        get: stub(),
+        set: stub()
+      };
+      originalEnd = requestIns.end;
+      requestIns.method = 'GET';
+      localCacheStub.get.callsArgWith(1, null, mockCachedResponse);
+      resultSpy = spy();
+      result = request.get(url, null, null, {cache: localCacheStub});
+      result.query(queryData);
+      result.end((err, res) => {
+        resultSpy(res);
+        done();
+      });
+    });
+
+    it('should have returned cached value', () => {
+      expect(resultSpy.calledWith(mockCachedResponse)).to.be.true;
+    });
+
+    it('should not have called superagent original request', () => {
+      expect(originalEnd.called).to.be.false;
+    });
+  });
+
+  describe('get request with built in cache and no data', (done) => {
+    let result, originalEnd, resultSpy;
+    let queryData = {test: 'something', test2: 'something else'};
+    let mockCachedResponse = {body: {result: 'data'}};
+
+    const url = 'http://example.com/posts/';
+    beforeEach((done) => {
+      originalEnd = requestIns.end;
+      originalEnd.yields(null, mockCachedResponse);
+      requestIns.method = 'GET';
+      requestIns.url = url;
+      requestIns._query = queryData;
+      requestIns._data = {};
+      cacheStub.get.callsArgWith(1, null, null);
+      resultSpy = spy();
+
+      result = request.get(url, null, null, {cache: true});
+      result.query(queryData);
+      result.end((err, res) => {
+        resultSpy(res);
+        done();
+      });
+    });
+
+    it('should have returned cached value', () => {
+      expect(resultSpy.calledWith(mockCachedResponse)).to.be.true;
+    });
+
+    it('should have called superagent original request', () => {
+      expect(originalEnd.called).to.be.true;
+    });
+
+    it('should have called set', () => {
+      expect(cacheStub.set.calledWith(`${url}_${JSON.stringify(queryData)}_{}`, mockCachedResponse)).to.be.true;
     });
   });
 

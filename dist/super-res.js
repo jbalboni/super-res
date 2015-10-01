@@ -3,8 +3,8 @@ var _createClass = (function () { function defineProperties(target, props) { for
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
 
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('q'), require('route-parser'), require('cache-manager'), require('superagent'), require('methods')) : typeof define === 'function' && define.amd ? define(['q', 'route-parser', 'cache-manager', 'superagent', 'methods'], factory) : global.superRes = factory(global.Q, global.Route, global.cacheManager, global.sa, global.methods);
-})(this, function (Q, Route, cacheManager, sa, methods) {
+  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('q'), require('route-parser'), require('superagent'), require('methods'), require('cache-manager')) : typeof define === 'function' && define.amd ? define(['q', 'route-parser', 'superagent', 'methods', 'cache-manager'], factory) : global.superRes = factory(global.Q, global.Route, global.sa, global.methods, global.cacheManager);
+})(this, function (Q, Route, sa, methods, cacheManager) {
   'use strict';
 
   var utils_js__assign = utils_js__assign || require('object.assign');
@@ -52,6 +52,12 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     cache: null
   };
 
+  var defaultCache = cacheManager.caching({ store: 'memory', max: 100, ttl: 1200 });
+
+  function getCacheKey(url, params, data) {
+    return url + '_' + (typeof params === 'string' ? params : JSON.stringify(params || {})) + '_' + (typeof data === 'string' ? data : JSON.stringify(data || {}));
+  }
+
   function request(method, url, options) {
     options = assignOptions(defaultOpts, options);
 
@@ -71,40 +77,69 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
       curReq.withCredentials();
     }
 
+    if (options.cache == true) {
+      options.cache = defaultCache;
+    }
+
     var originalEnd = curReq.end;
     curReq.end = function (fn) {
-      if (curReq._data && typeof curReq._data === 'object') {
-        try {
-          curReq._data = options.transformRequest.reduce(function (memo, transform) {
-            return transform.call(curReq, memo, curReq.header);
-          }, curReq._data);
-        } catch (e) {
-          options.catchRequestError.reduce(function (promise, catchFunc) {
-            return promise['catch'](catchFunc);
-          }, Q.Promise(function (resolve, reject) {
-            return reject(e);
-          })).then(fn, fn);
-          return this;
-        }
-      }
-      return originalEnd.call(curReq, function (err, res) {
-        if (err) {
-          options.catchResponseError.reduce(function (promise, catchFunc) {
-            return promise['catch'](catchFunc);
-          }, Q.Promise(function (resolve, reject) {
-            return reject(err);
-          })).then(fn, fn);
-        } else {
+      var _this = this;
+
+      var key = undefined;
+      options.cache && (key = getCacheKey(this.url, this._query, this._data));
+
+      var doRequest = function doRequest() {
+        if (curReq._data && typeof curReq._data === 'object') {
           try {
-            res.body = options.transformResponse.reduce(function (memo, transform) {
-              return transform.call(res, memo);
-            }, res.body);
+            curReq._data = options.transformRequest.reduce(function (memo, transform) {
+              return transform.call(curReq, memo, curReq.header);
+            }, curReq._data);
           } catch (e) {
-            return Q(e).then(fn);
+            options.catchRequestError.reduce(function (promise, catchFunc) {
+              return promise['catch'](catchFunc);
+            }, Q.Promise(function (resolve, reject) {
+              return reject(e);
+            })).then(fn, fn);
+            return _this;
           }
-          return Q.spread([null, res], fn);
         }
-      });
+
+        return originalEnd.call(curReq, function (err, res) {
+          if (err) {
+            options.catchResponseError.reduce(function (promise, catchFunc) {
+              return promise['catch'](catchFunc);
+            }, Q.Promise(function (resolve, reject) {
+              return reject(err);
+            })).then(fn, fn);
+          } else {
+            try {
+              res.body = options.transformResponse.reduce(function (memo, transform) {
+                return transform.call(res, memo);
+              }, res.body);
+
+              if (options.cache) {
+                options.cache.set(key, res);
+              }
+            } catch (e) {
+              return Q(e).then(fn);
+            }
+            Q.spread([null, res], fn);
+          }
+        });
+      };
+
+      if (options.cache && this.method === 'GET') {
+        options.cache.get(key, function (err, result) {
+          if (err || result) {
+            Q.spread([err, result], fn);
+            return _this;
+          } else {
+            return doRequest();
+          }
+        });
+      } else {
+        return doRequest();
+      }
     };
 
     return curReq;
@@ -139,17 +174,12 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
   var actionDefaults = {
     method: 'GET',
-    transformRequest: [],
-    cache: null
+    transformRequest: []
   };
 
   function moveDataToParam(data, header) {
     data && this.query(data);
     return null;
-  }
-
-  function getCacheKey(params, data) {
-    return JSON.stringify(params || {}) + JSON.stringify(data || {});
   }
 
   var ResourceAction = (function () {
@@ -179,10 +209,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
           continue;
         }
         delete this.defaultParams[i];
-      }
-
-      if (this.config.cache === true) {
-        this.config.cache = cacheManager.caching({ store: 'memory', max: 100, ttl: 1200 });
       }
     }
 
@@ -218,8 +244,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     }, {
       key: 'makeRequest',
       value: function makeRequest(params, data) {
-        var _this = this;
-
         var deferred = Q.defer();
 
         if (arguments.length == 1 && this.hasData) {
@@ -241,35 +265,13 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
         var fullParams = ResourceAction_js__assign({}, this.defaultParams, extraP, params);
 
-        var doRequest = function doRequest() {
-          _this.buildRequest(fullParams, data).end(function (err, res) {
-            if (err) {
-              deferred.reject(err);
-            } else {
-
-              if (_this.config.cache) {
-                _this.config.cache.set(getCacheKey(fullParams, data), res.body);
-              }
-
-              deferred.resolve(res.body);
-            }
-          });
-        };
-
-        if (this.config.cache && this.config.method.toLowerCase() === 'get') {
-          var key = getCacheKey(fullParams, data);
-          this.config.cache.get(key, function (err, result) {
-            if (err) {
-              deferred.reject(err);
-            } else if (result) {
-              deferred.resolve(result);
-            } else {
-              doRequest();
-            }
-          });
-        } else {
-          doRequest();
-        }
+        this.buildRequest(fullParams, data).end(function (err, res) {
+          if (err) {
+            deferred.reject(err);
+          } else {
+            deferred.resolve(res.body);
+          }
+        });
 
         return deferred.promise;
       }
@@ -306,7 +308,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     var resource = generateDefaultActions(url, defaultParams, commonOptions);
     if (actions) {
       Object.getOwnPropertyNames(actions).forEach(function (name) {
-        var action = new ResourceAction(url, defaultParams, actions[name]);
+        var action = new ResourceAction(url, defaultParams, super_res__assign({}, commonOptions, actions[name]));
         resource[name] = function () {
           action.makeRequest.apply(action, arguments);
         };

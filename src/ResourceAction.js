@@ -2,24 +2,18 @@ var assign = assign || require('object.assign');
 
 import Q from 'q';
 import Route from 'route-parser';
-import cacheManager from 'cache-manager';
 
 import request from './request.js';
 import {assignOptions} from './utils.js'
 
 const actionDefaults = {
   method: 'GET',
-  transformRequest: [],
-  cache: null
+  transformRequest: []
 };
 
 function moveDataToParam(data, header) {
   data && this.query(data);
   return null
-}
-
-function getCacheKey(params, data) {
-  return JSON.stringify(params || {}) + JSON.stringify(data || {});
 }
 
 export default class ResourceAction {
@@ -49,10 +43,6 @@ export default class ResourceAction {
         continue;
       }
       delete this.defaultParams[i];
-    }
-
-    if (this.config.cache === true) {
-      this.config.cache = cacheManager.caching({store: 'memory', max: 100, ttl: 1200});
     }
   }
 
@@ -104,36 +94,14 @@ export default class ResourceAction {
 
     let fullParams = assign({}, this.defaultParams, extraP, params);
 
-    let doRequest = () => {
-      this.buildRequest(fullParams, data)
-          .end((err, res) => {
-            if (err) {
-              deferred.reject(err);
-            } else {
-
-              if (this.config.cache) {
-                this.config.cache.set(getCacheKey(fullParams, data), res.body);
-              }
-
-              deferred.resolve(res.body);
-            }
-          });
-    };
-
-    if (this.config.cache && this.config.method.toLowerCase() === 'get') {
-      let key = getCacheKey(fullParams, data);
-      this.config.cache.get(key, (err, result) => {
+    this.buildRequest(fullParams, data)
+      .end((err, res) => {
         if (err) {
           deferred.reject(err);
-        } else if (result) {
-          deferred.resolve(result);
         } else {
-          doRequest();
+          deferred.resolve(res.body);
         }
-      })
-    } else {
-      doRequest();
-    }
+      });
 
     return deferred.promise;
   }
