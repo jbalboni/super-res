@@ -51,10 +51,12 @@ describe('resource: ', () => {
       resource = superRes.resource('http://example.com/posts/:id', null, {
         myFunction: { method: 'GET' }
       });
+      resource.myFunction();
     });
 
     it('should have myFunction', () => {
       expect(resource.myFunction).to.be.a('function');
+      expect(actionStub.makeRequest.called).to.be.true;
     });
 
   });
