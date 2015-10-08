@@ -1,10 +1,9 @@
 var assign = assign || require('object.assign');
 
 import Q from 'q';
-import Route from 'route-parser';
 
 import request from './request.js';
-import {assignOptions} from './utils.js'
+import {assignOptions, parseUrl} from './utils.js'
 
 const actionDefaults = {
   method: 'GET',
@@ -29,7 +28,6 @@ export default class ResourceAction {
       this.hasData = true;
     }
 
-    this.route = new Route(this.config.url);
     this.defaultParams = defaultParams;
 
     this.extraParams = {};
@@ -48,23 +46,12 @@ export default class ResourceAction {
 
   buildRequest(params, data) {
     let method = this.config.method.toLowerCase();
-    let url = this.route.reverse(params);
-
-    for(let i in this.route.match(url)) {
-      delete params[i];
-    }
-    let empty = true;
-    if(params) {
-      for(let i in params) {
-        empty = false;
-        break;
-      }
-    }
+    let {url, query} = parseUrl(this.config.url, params);
 
     let currentRequest = request[method === 'delete' ? 'del' : method](url, null, null, this.config);
 
-    if(!empty) {
-      currentRequest.query(params);
+    if(query) {
+      currentRequest.query(query);
     }
 
     if (data) {

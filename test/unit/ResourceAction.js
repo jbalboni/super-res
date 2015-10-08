@@ -31,7 +31,7 @@ describe('ResourceAction', () => {
   describe('get request with no data', () => {
     let result, returnSpy;
 
-    const url = 'http://example.com/posts/';
+    const url = 'http://example.com/posts';
     beforeEach((done) => {
       request.end = stub().yields(null, {body: {foo: 'bar'}}).returnsThis();
       returnSpy = spy();
@@ -57,7 +57,7 @@ describe('ResourceAction', () => {
   describe('get request with no data failed', () => {
     let result, returnSpy;
 
-    const url = 'http://example.com/posts/';
+    const url = 'http://example.com/posts';
     beforeEach((done) => {
       request.end = stub().yields({msg: 'Errors'}).returnsThis();
       returnSpy = spy();
@@ -97,6 +97,25 @@ describe('ResourceAction', () => {
 
   });
 
+  describe('get request with missing params and data', () => {
+    let result;
+    let queryData = {test: 'something', test2: 'something else'};
+
+    const url = 'http://example.com/posts/:someParam';
+    beforeEach(() => {
+      let resource = new ResourceAction(url, {}, {method: 'GET'});
+      result = resource.makeRequest({foo: 'bar'}, queryData);
+    });
+
+    it('should have replaced the url token', () => {
+      expect(request.get.calledWith('http://example.com/posts')).to.be.true;
+    });
+
+    it('should have called query', () => {
+      expect(request.query.calledWith({foo: 'bar'})).to.be.true;
+    });
+  });
+
   describe('get request with params and data', () => {
     let result;
     let queryData = {test: 'something', test2: 'something else'};
@@ -120,7 +139,7 @@ describe('ResourceAction', () => {
     let result;
     let postData = {test: 'something', test2: 'something else'};
 
-    const url = 'http://example.com/posts/';
+    const url = 'http://example.com/posts';
     beforeEach(() => {
       let resource = new ResourceAction(url, {}, {method: 'POST'});
       result = resource.makeRequest(null, postData);

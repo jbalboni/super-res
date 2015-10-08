@@ -80,4 +80,51 @@ describe('utils', () => {
 
   });
 
+  describe('parseUrl', () => {
+    let parseUrl = utils.parseUrl;
+
+    it('should throw error with "hasOwnProperty"', () => {
+      expect(() => parseUrl('http://foo.bar/baz:hasOwnProperty', {f: 'aaa', b: 'bbb'})).to.throw(Error);
+    });
+
+    it('should return url and query parameters', () => {
+      expect(parseUrl('http://foo.bar/baz:f', {f: 'aaa', b: 'bbb'})).to.deep.equal({
+        url: 'http://foo.bar/bazaaa',
+        query: {b: 'bbb'}
+      });
+
+    });
+
+    it('should return url with dots', () => {
+      expect(parseUrl('http://foo.bar/:baz.:qux', {baz: 'aaa', qux: 'bbb'})).to.deep.equal({
+        url: 'http://foo.bar/aaa.bbb',
+        query: undefined
+      });
+
+    });
+
+    it('should return url with missing parameters', () => {
+      expect(parseUrl('http://foo.bar/:baz.:qux', {qux: 'bbb'})).to.deep.equal({
+        url: 'http://foo.bar.bbb',
+        query: undefined
+      });
+      expect(parseUrl('http://foo.bar/:baz.:qux/else', {baz: 'bbb'})).to.deep.equal({
+        url: 'http://foo.bar/bbb./else',
+        query: undefined
+      });
+      expect(parseUrl('http://foo.bar/:baz/:qux/else')).to.deep.equal({
+        url: 'http://foo.bar/else',
+        query: undefined
+      });
+    });
+
+    it('should transform uri components', () => {
+      expect(parseUrl('http://foo.bar/:baz/:qux', {baz: '@:$,', qux: ' &=+'})).to.deep.equal({
+        url: 'http://foo.bar/@:$,/%20&=+',
+        query: undefined
+      });
+
+    });
+
+  });
 });
