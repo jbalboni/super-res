@@ -6,6 +6,7 @@ import {assignOptions} from './utils.js';
 
 const defaultOpts = {
   responseType: 'json',
+  headers: {},
   transformRequest: [],
   catchRequestError: [],
   transformResponse: [],
@@ -25,9 +26,7 @@ function request (method, url, options) {
 
   let curReq = sa(method, url);
   curReq.accept(options.responseType);
-  if (options.headers) {
-    curReq.set(options.headers);
-  }
+  curReq.set(options.headers);
 
   if (options.timeout) {
     curReq.timeout(options.timeout);
