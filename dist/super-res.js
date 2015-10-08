@@ -3,8 +3,8 @@ var _createClass = (function () { function defineProperties(target, props) { for
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
 
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('q'), require('route-parser'), require('superagent'), require('methods'), require('cache-manager')) : typeof define === 'function' && define.amd ? define(['q', 'route-parser', 'superagent', 'methods', 'cache-manager'], factory) : global.superRes = factory(global.Q, global.Route, global.sa, global.methods, global.cacheManager);
-})(this, function (Q, Route, sa, methods, cacheManager) {
+  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('q'), require('superagent'), require('methods'), require('cache-manager')) : typeof define === 'function' && define.amd ? define(['q', 'superagent', 'methods', 'cache-manager'], factory) : global.superRes = factory(global.Q, global.sa, global.methods, global.cacheManager);
+})(this, function (Q, sa, methods, cacheManager) {
   'use strict';
 
   var utils_js__assign = utils_js__assign || require('object.assign');
@@ -40,6 +40,78 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     }, result);
 
     return result;
+  }
+
+  function encodeUriSegment(val) {
+    return encodeURIComponent(val).replace(/%40/gi, '@').replace(/%3A/gi, ':').replace(/%24/g, '$').replace(/%2C/gi, ',').replace(/%20/g, '%20').replace(/%26/gi, '&').replace(/%3D/gi, '=').replace(/%2B/gi, '+');
+  }
+
+  function forEach(obj, iterator, context) {
+    for (var key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        iterator.call(context, obj[key], key, obj);
+      }
+    }
+    return obj;
+  }
+
+  function parseUrl(url, params) {
+
+    var urlParams = {},
+        val = undefined,
+        query = undefined,
+        encodedVal = undefined;
+
+    forEach(url.split(/\W/), function (param) {
+      if (param === 'hasOwnProperty') {
+        throw new Error('badname: hasOwnProperty is not a valid parameter name.');
+      }
+      if (!new RegExp('^\\d+$').test(param) && param && new RegExp('(^|[^\\\\]):' + param + '(\\W|$)').test(url)) {
+        urlParams[param] = true;
+      }
+    });
+    url = url.replace(/\\:/g, ':');
+
+    params = params || {};
+    forEach(urlParams, function (_, urlParam) {
+      val = params[urlParam];
+      if (typeof val !== 'undefined' && val !== null) {
+        encodedVal = encodeUriSegment(val);
+        url = url.replace(new RegExp(':' + urlParam + '(\\W|$)', 'g'), function (match, p1) {
+          return encodedVal + p1;
+        });
+      } else {
+        url = url.replace(new RegExp('(\/?):' + urlParam + '(\\W|$)', 'g'), function (match, leadingSlashes, tail) {
+          if (tail.charAt(0) == '/') {
+            return tail;
+          } else {
+            return leadingSlashes + tail;
+          }
+        });
+      }
+    });
+
+    // strip trailing slashes and set the url (unless this behavior is specifically disabled)
+    url = url.replace(/\/+$/, '') || '/';
+
+    // then replace collapse `/.` if found in the last URL path segment before the query
+    // E.g. `http://url.com/id./format?q=x` becomes `http://url.com/id.format?q=x`
+    url = url.replace(/\/\.(?=\w+($|\?))/, '.');
+    // replace escaped `/\.` with `/.`
+    url = url.replace(/\/\\\./, '/.');
+
+    // set params - delegate param encoding to $http
+    forEach(params, function (value, key) {
+      if (!urlParams[key]) {
+        query || (query = {});
+        query[key] = value;
+      }
+    });
+
+    return {
+      url: url,
+      query: query
+    };
   }
 
   var defaultOpts = {
@@ -194,7 +266,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
         this.hasData = true;
       }
 
-      this.route = new Route(this.config.url);
       this.defaultParams = defaultParams;
 
       this.extraParams = {};
@@ -215,23 +286,16 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
       key: 'buildRequest',
       value: function buildRequest(params, data) {
         var method = this.config.method.toLowerCase();
-        var url = this.route.reverse(params);
 
-        for (var i in this.route.match(url)) {
-          delete params[i];
-        }
-        var empty = true;
-        if (params) {
-          for (var i in params) {
-            empty = false;
-            break;
-          }
-        }
+        var _parseUrl = parseUrl(this.config.url, params);
+
+        var url = _parseUrl.url;
+        var query = _parseUrl.query;
 
         var currentRequest = request[method === 'delete' ? 'del' : method](url, null, null, this.config);
 
-        if (!empty) {
-          currentRequest.query(params);
+        if (query) {
+          currentRequest.query(query);
         }
 
         if (data) {
