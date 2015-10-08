@@ -44,6 +44,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
   var defaultOpts = {
     responseType: 'json',
+    headers: {},
     transformRequest: [],
     catchRequestError: [],
     transformResponse: [],
@@ -63,9 +64,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
     var curReq = sa(method, url);
     curReq.accept(options.responseType);
-    if (options.headers) {
-      curReq.set(options.headers);
-    }
+    curReq.set(options.headers);
 
     if (options.timeout) {
       curReq.timeout(options.timeout);
