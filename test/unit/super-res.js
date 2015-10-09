@@ -4,14 +4,18 @@ import Q from 'q';
 describe('resource: ', () => {
   let actionStub;
   let superRes;
+  let constructorSpy;
 
   beforeEach(() => {
     actionStub = {
       makeRequest: stub()
     };
 
+    constructorSpy = spy();
+
     let stubs = {
-      './ResourceAction.js': function () {
+      './ResourceAction.js': function (...args) {
+        constructorSpy(...args);
         return actionStub;
       }
     };
@@ -51,10 +55,32 @@ describe('resource: ', () => {
       resource = superRes.resource('http://example.com/posts/:id', null, {
         myFunction: { method: 'GET' }
       });
+      resource.myFunction();
     });
 
     it('should have myFunction', () => {
       expect(resource.myFunction).to.be.a('function');
+      expect(actionStub.makeRequest.called).to.be.true;
+    });
+
+  });
+
+  describe('Default parameters of single action is defined', () => {
+    let resource;
+    beforeEach(() => {
+      resource = superRes.resource('http://example.com/posts/:id', null, {
+        myFunction: { params: {id: 'foo'} }
+      });
+      resource.myFunction();
+    });
+
+    it('should have myFunction', () => {
+      expect(resource.myFunction).to.be.a('function');
+      expect(actionStub.makeRequest.called).to.be.true;
+    });
+
+    it('should have default parameters', () => {
+      expect(constructorSpy.calledWith('http://example.com/posts/:id', {id: 'foo'}, {})).to.be.true;
     });
 
   });
