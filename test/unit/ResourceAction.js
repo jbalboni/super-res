@@ -1,6 +1,5 @@
 import proxyquire from 'proxyquire';
 import Q from 'q';
-import Route from 'route-parser';
 
 describe('ResourceAction', () => {
   let ResourceAction;

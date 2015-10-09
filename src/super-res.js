@@ -3,7 +3,7 @@ var assign = assign || require('object.assign');
 import Q from 'q';
 
 import ResourceAction from './ResourceAction.js';
-import request from './request.js'
+import request from './request.js';
 
 let superRes = {};
 
@@ -31,7 +31,13 @@ superRes.resource = (url, defaultParams, actions, commonOptions) => {
   let resource = generateDefaultActions(url, defaultParams, commonOptions);
   if (actions) {
     Object.getOwnPropertyNames(actions).forEach((name) => {
-      let action = new ResourceAction(url, defaultParams, assign({}, commonOptions, actions[name]));
+      let params = defaultParams;
+      let actionParams = actions[name].params;
+      if(actionParams && typeof actionParams === 'object') {
+        params = assign({}, defaultParams, actionParams);
+        delete actions[name].params;
+      }
+      let action = new ResourceAction(url, params, assign({}, commonOptions, actions[name]));
       resource[name] = function (...args) {
         action.makeRequest(...args);
       }
