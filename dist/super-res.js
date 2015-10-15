@@ -7,7 +7,6 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 })(this, function (Q, superagent, Route, cacheManager) {
   'use strict';
 
-
   var actionDefaults = actionDefaults = {
     method: 'GET',
     responseType: 'json',
@@ -19,35 +18,57 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
   var ResourceAction_js__assign = ResourceAction_js__assign || require('object.assign');
 
+  var cacheDefault = { store: 'memory', max: 100, ttl: 1200 };
+
   function applyResponseTransforms(transforms, response) {
-    return transforms.reduceRight(function (memo, transform) {
+    return transforms.reduce(function (memo, transform) {
       return transform(memo, response.header);
     }, response.body);
   }
 
   function applyRequestTransforms(transforms, request, data) {
-    return transforms.reduceRight(function (memo, transform) {
+    return transforms.reduce(function (memo, transform) {
       return transform(memo, request.header);
     }, data);
   }
 
   var ResourceAction = (function () {
     function ResourceAction(url, defaultParams, action) {
+      var _this = this;
+
       _classCallCheck(this, ResourceAction);
 
       this.config = ResourceAction_js__assign({ url: url }, actionDefaults, action);
+
+      if (this.config.method.toUpperCase() === 'POST' || this.config.method.toUpperCase() === 'PUT' || this.config.method.toUpperCase() === 'PATCH') {
+        this.canHaveData = true;
+      }
+
       this.route = new Route(this.config.url);
-      this.defaultParams = defaultParams;
+      this.defaultParams = {};
+      this.derivedParams = {};
+
+      Object.getOwnPropertyNames(defaultParams).forEach(function (paramName) {
+        var param = defaultParams[paramName];
+        if (typeof param === 'function') {
+          _this.derivedParams[paramName] = param;
+        } else if (typeof param === 'string' && param.startsWith('@')) {
+          _this.derivedParams[paramName] = param.slice(1);
+        } else {
+          //add to default if it's not an @ or function param
+          _this.defaultParams[paramName] = defaultParams[paramName];
+        }
+      });
 
       if (this.config.cache === true) {
-        this.config.cache = cacheManager.caching({ store: 'memory', max: 100, ttl: 1200 });
+        this.config.cache = cacheManager.caching(cacheDefault);
       }
     }
 
     _createClass(ResourceAction, [{
       key: 'getCacheKey',
       value: function getCacheKey(params, data) {
-        return this.route.reverse(params) + JSON.stringify(data);
+        return this.route.reverse(params) + JSON.stringify(data || {});
       }
     }, {
       key: 'buildRequest',
@@ -84,20 +105,36 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     }, {
       key: 'makeRequest',
       value: function makeRequest(params, data) {
-        var _this = this;
+        var _this2 = this;
 
         var deferred = Q.defer();
-        var fullParams = ResourceAction_js__assign({}, this.defaultParams, params);
+
+        if (arguments.length === 1 && this.canHaveData) {
+          data = params;
+          params = undefined;
+        }
+
+        var computedParams = {};
+        Object.getOwnPropertyNames(this.derivedParams).forEach(function (prop) {
+          var param = _this2.derivedParams[prop];
+          if (typeof param === 'function') {
+            computedParams[prop] = param();
+          } else {
+            computedParams[prop] = data[param];
+          }
+        });
+
+        var fullParams = ResourceAction_js__assign({}, this.defaultParams, computedParams, params);
 
         var doRequest = function doRequest() {
-          _this.buildRequest(fullParams, data).end(function (err, res) {
+          _this2.buildRequest(fullParams, data).end(function (err, res) {
             if (err) {
               deferred.reject(err);
             } else {
-              var transformedReponse = applyResponseTransforms(_this.config.transformResponse, res);
+              var transformedReponse = applyResponseTransforms(_this2.config.transformResponse, res);
 
-              if (_this.config.cache) {
-                _this.config.cache.set(_this.getCacheKey(fullParams, data), transformedReponse);
+              if (_this2.config.cache) {
+                _this2.config.cache.set(_this2.getCacheKey(fullParams, data), transformedReponse);
               }
 
               deferred.resolve(transformedReponse);
@@ -105,7 +142,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
           });
         };
 
-        if (this.config.cache && this.config.method.toLowerCase() === 'get') {
+        if (this.config.cache && this.config.method.toUpperCase() === 'GET') {
           var key = this.getCacheKey(fullParams, data);
           this.config.cache.get(key, function (err, result) {
             if (err) {
