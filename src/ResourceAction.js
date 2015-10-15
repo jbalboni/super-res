@@ -7,14 +7,16 @@ import cacheManager from 'cache-manager';
 
 import actionDefaults from './actionDefaults.js';
 
+const cacheDefault = {store: 'memory', max: 100, ttl: 1200};
+
 function applyResponseTransforms(transforms, response) {
-  return transforms.reduceRight(function (memo, transform) {
+  return transforms.reduce(function (memo, transform) {
     return transform(memo, response.header);
   }, response.body);
 }
 
 function applyRequestTransforms(transforms, request, data) {
-  return transforms.reduceRight(function (memo, transform) {
+  return transforms.reduce(function (memo, transform) {
     return transform(memo, request.header);
   }, data);
 }
@@ -23,34 +25,35 @@ export default class ResourceAction {
   constructor(url, defaultParams, action) {
     this.config = assign({url: url}, actionDefaults, action);
 
-    if((this.config.method === 'POST' ||
-      this.config.method === 'PUT' ||
-      this.config.method === 'PATCH')) {
-      this.hasData = true;
+    if((this.config.method.toUpperCase() === 'POST' ||
+      this.config.method.toUpperCase() === 'PUT' ||
+      this.config.method.toUpperCase() === 'PATCH')) {
+      this.canHaveData = true;
     }
 
     this.route = new Route(this.config.url);
-    this.defaultParams = defaultParams;
+    this.defaultParams = {};
+    this.derivedParams = {};
 
-    this.extraParams = {};
-    for(let i in defaultParams) {
-      let param = defaultParams[i];
-      if(typeof param === 'function') {
-        this.extraParams[i] = param;
-      } else if(typeof param === 'string' && param[0] === '@') {
-        this.extraParams[i] = param.slice(1);
-      } else {
-        continue;
-      }
-      delete this.defaultParams[i];
-    }
+    Object.getOwnPropertyNames(defaultParams)
+      .forEach((paramName) => {
+        let param = defaultParams[paramName];
+        if (typeof param === 'function') {
+          this.derivedParams[paramName] = param;
+        } else if (typeof param === 'string' && param.startsWith('@')) {
+          this.derivedParams[paramName] = param.slice(1);
+        } else {
+          //add to default if it's not an @ or function param
+          this.defaultParams[paramName] = defaultParams[paramName];
+        }
+      });
 
     if (this.config.cache === true) {
-      this.config.cache = cacheManager.caching({store: 'memory', max: 100, ttl: 1200});
+      this.config.cache = cacheManager.caching(cacheDefault);
     }
   }
   getCacheKey(params, data) {
-    return this.route.reverse(params) + JSON.stringify(params || {}) + JSON.stringify(data || {});
+    return this.route.reverse(params) + JSON.stringify(data || {});
   }
   buildRequest(params, data) {
     let method = this.config.method.toLowerCase();
@@ -85,23 +88,23 @@ export default class ResourceAction {
   makeRequest(params, data) {
     let deferred = Q.defer();
 
-    if(arguments.length == 1 && this.hasData) {
+    if(arguments.length === 1 && this.canHaveData) {
       data = params;
       params = undefined;
     }
 
-    let extraP = {};
-    for(let i in this.extraParams) {
-      let p = this.extraParams[i], result;
-      if(typeof p === 'function') {
-        result = p();
-      } else {
-        result = data[p];
-      }
-      result && (extraP[i] = result);
-    }
+    let computedParams = {};
+    Object.getOwnPropertyNames(this.derivedParams)
+      .forEach((prop) => {
+          let param = this.derivedParams[prop];
+          if(typeof param === 'function') {
+            computedParams[prop] = param();
+          } else {
+            computedParams[prop] = data[param];
+          }
+      });
 
-    let fullParams = assign({}, this.defaultParams, extraP, params);
+    let fullParams = assign({}, this.defaultParams, computedParams, params);
 
     let doRequest = () => {
       this.buildRequest(fullParams, data)
@@ -120,7 +123,7 @@ export default class ResourceAction {
           });
     };
 
-    if (this.config.cache && this.config.method.toLowerCase() === 'get') {
+    if (this.config.cache && this.config.method.toUpperCase() === 'GET') {
       let key = this.getCacheKey(fullParams, data);
       this.config.cache.get(key, (err, result) => {
         if (err) {
