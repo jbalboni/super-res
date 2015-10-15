@@ -45,7 +45,6 @@ The api is generally the same, but some things are not yet implemented. Here's w
 
 Differences from angular-resource:
 - Entirely promise based. No $promise or $resolved properties.
-- Default params object does not support functions or @ notation.
 - The data returned is just an object, it does not have any resource functions attached.
 - isArray doesn't do anything. I haven't seen a use case for it (arrays and objects work as you'd expect).
 - Includes a default PUT action (called put).
