@@ -22,15 +22,35 @@ function applyRequestTransforms(transforms, request, data) {
 export default class ResourceAction {
   constructor(url, defaultParams, action) {
     this.config = assign({url: url}, actionDefaults, action);
+
+    if((this.config.method === 'POST' ||
+      this.config.method === 'PUT' ||
+      this.config.method === 'PATCH')) {
+      this.hasData = true;
+    }
+
     this.route = new Route(this.config.url);
     this.defaultParams = defaultParams;
+
+    this.extraParams = {};
+    for(let i in defaultParams) {
+      let param = defaultParams[i];
+      if(typeof param === 'function') {
+        this.extraParams[i] = param;
+      } else if(typeof param === 'string' && param[0] === '@') {
+        this.extraParams[i] = param.slice(1);
+      } else {
+        continue;
+      }
+      delete this.defaultParams[i];
+    }
 
     if (this.config.cache === true) {
       this.config.cache = cacheManager.caching({store: 'memory', max: 100, ttl: 1200});
     }
   }
   getCacheKey(params, data) {
-    return this.route.reverse(params) + JSON.stringify(data);
+    return this.route.reverse(params) + JSON.stringify(params || {}) + JSON.stringify(data || {});
   }
   buildRequest(params, data) {
     let method = this.config.method.toLowerCase();
@@ -64,7 +84,24 @@ export default class ResourceAction {
   }
   makeRequest(params, data) {
     let deferred = Q.defer();
-    let fullParams = assign({}, this.defaultParams, params);
+
+    if(arguments.length == 1 && this.hasData) {
+      data = params;
+      params = undefined;
+    }
+
+    let extraP = {};
+    for(let i in this.extraParams) {
+      let p = this.extraParams[i], result;
+      if(typeof p === 'function') {
+        result = p();
+      } else {
+        result = data[p];
+      }
+      result && (extraP[i] = result);
+    }
+
+    let fullParams = assign({}, this.defaultParams, extraP, params);
 
     let doRequest = () => {
       this.buildRequest(fullParams, data)

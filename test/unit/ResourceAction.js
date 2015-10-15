@@ -108,6 +108,48 @@ describe('ResourceAction', () => {
     });
   });
 
+  describe('post request with @ params and data', () => {
+    let result;
+    let postData = {_id:'hashcode', test: 'something', test2: 'something else'};
+
+    const url = 'http://example.com/posts/:id';
+    beforeEach(() => {
+      let resource = new ResourceAction(url, {id: '@_id'}, {method: 'POST'});
+      result = resource.makeRequest(postData);
+    });
+
+    it('should have called post with url which is picked from data.', () => {
+      expect(stubs.superagent.post.calledWith('http://example.com/posts/hashcode')).to.be.true;
+    });
+    it('should have called send', () => {
+      expect(stubs.superagent.send.calledWith(postData)).to.be.true;
+    });
+    it('should not have called query', () => {
+      expect(stubs.superagent.query.called).to.be.false;
+    });
+  });
+
+  describe('post request with factory params and data', () => {
+    let result;
+    let postData = {_id:'hashcode', test: 'something', test2: 'something else'};
+
+    const url = 'http://example.com/posts/:id';
+    beforeEach(() => {
+      let resource = new ResourceAction(url, {id: () => 'foo'}, {method: 'POST'});
+      result = resource.makeRequest(postData);
+    });
+
+    it('should have called post with url', () => {
+      expect(stubs.superagent.post.calledWith('http://example.com/posts/foo')).to.be.true;
+    });
+    it('should have called send', () => {
+      expect(stubs.superagent.send.calledWith(postData)).to.be.true;
+    });
+    it('should not have called query', () => {
+      expect(stubs.superagent.query.called).to.be.false;
+    });
+  });
+
   describe('request with response type', () => {
     let result;
 

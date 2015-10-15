@@ -7,6 +7,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 })(this, function (Q, superagent, Route, cacheManager) {
   'use strict';
 
+
   var actionDefaults = actionDefaults = {
     method: 'GET',
     responseType: 'json',
