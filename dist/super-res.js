@@ -48,7 +48,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
       this.defaultParams = {};
       this.derivedParams = {};
 
-      Object.getOwnPropertyNames(defaultParams).forEach(function (paramName) {
+      Object.getOwnPropertyNames(defaultParams || {}).forEach(function (paramName) {
         var param = defaultParams[paramName];
         if (typeof param === 'function') {
           _this.derivedParams[paramName] = param;

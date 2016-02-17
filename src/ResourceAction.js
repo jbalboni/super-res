@@ -35,7 +35,7 @@ export default class ResourceAction {
     this.defaultParams = {};
     this.derivedParams = {};
 
-    Object.getOwnPropertyNames(defaultParams)
+    Object.getOwnPropertyNames(defaultParams || {})
       .forEach((paramName) => {
         let param = defaultParams[paramName];
         if (typeof param === 'function') {

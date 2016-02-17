@@ -33,6 +33,19 @@ describe('ResourceAction', () => {
     ResourceAction = proxyquire('../../src/ResourceAction', stubs);
   });
 
+  describe('create resource with defaults', () => {
+    let resource;
+
+    const url = 'http://example.com/posts/';
+    beforeEach(() => {
+      resource = new ResourceAction(url, null, {method: 'GET'});
+    });
+
+    it('should create a resource object with defaults', () => {
+      expect(resource.get).to.be.defined;
+    });
+  });
+
   describe('get request with no data', () => {
     let result;
 
