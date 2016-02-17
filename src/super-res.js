@@ -1,40 +1,27 @@
 var assign = assign || require('object.assign');
 
-import Q from 'q';
+import createRequestor from './createRequestor.js';
 
-import ResourceAction from './ResourceAction.js';
-import actionDefaults from './actionDefaults.js';
-
-let superRes = {};
+const superRes = {};
 
 function generateDefaultActions(url, defaultParams) {
-  let resource = {};
+  const resource = {};
 
-  let action = new ResourceAction(url, defaultParams, assign({}, actionDefaults));
-  resource.get = action.makeRequest.bind(action);
+  resource.get = createRequestor(url, defaultParams);
   resource.query = resource.get;
-
-  action = new ResourceAction(url, defaultParams, assign({}, actionDefaults, {method: 'POST'}));
-  resource.save = action.makeRequest.bind(action);
-
-  action = new ResourceAction(url, defaultParams, assign({}, actionDefaults, {method: 'PUT'}));
-  resource.put = action.makeRequest.bind(action);
-
-  action = new ResourceAction(url, defaultParams, assign({}, actionDefaults, {method: 'DELETE'}));
-  resource.remove = action.makeRequest.bind(action);
+  resource.save = createRequestor(url, defaultParams, {method: 'POST'});
+  resource.put = createRequestor(url, defaultParams, {method: 'PUT'});
+  resource.remove = createRequestor(url, defaultParams, {method: 'DELETE'});
   resource['delete'] = resource.remove;
 
   return resource;
 }
 
 superRes.resource = (url, defaultParams, actions) => {
-  let resource = generateDefaultActions(url, defaultParams);
+  const resource = generateDefaultActions(url, defaultParams);
   if (actions) {
     Object.getOwnPropertyNames(actions).forEach((name) => {
-      let action = new ResourceAction(url, defaultParams, actions[name]);
-      resource[name] = function (...args) {
-        action.makeRequest(...args);
-      }
+      resource[name] = createRequestor(url, defaultParams, actions[name]);
     });
   }
   return resource;

@@ -1,19 +1,14 @@
 import proxyquire from 'proxyquire';
 import Q from 'q';
 
-describe('resource: ', () => {
-  let actionStub;
+describe('super-res: ', () => {
+  let requestStub;
   let superRes;
 
   beforeEach(() => {
-    actionStub = {
-      makeRequest: stub()
-    };
-
+    requestStub = stub();
     let stubs = {
-      './ResourceAction.js': function () {
-        return actionStub;
-      }
+      './createRequestor.js': function() { return requestStub }
     };
     superRes = proxyquire('../../src/super-res', stubs);
 
@@ -65,7 +60,7 @@ describe('resource: ', () => {
     beforeEach(() => {
       qStub = spy();
       resource = superRes.promiseWrapper(qStub)(superRes.resource('http://example.com/posts/:id'));
-      actionStub.makeRequest.returns(Q.when({test: 1}));
+      requestStub.returns(Q.when({test: 1}));
       resource.get({id: 1});
     });
 
@@ -81,7 +76,7 @@ describe('resource: ', () => {
 
     beforeEach(() => {
       resource = superRes.promiseWrapper(Q)(superRes.resource('http://example.com/posts/:id'));
-      actionStub.makeRequest.returns(Q.reject({test: 1}));
+      requestStub.returns(Q.reject({test: 1}));
       promise = resource.get({id: 1});
     });
 
