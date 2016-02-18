@@ -5,9 +5,9 @@ import Q from 'q';
 
 var exports = {};
 
-exports.configureRequest = function configureRequest(config, route, params, dataTransformer) {
+exports.configureRequest = function configureRequest(config, url, dataTransformer) {
     const method = config.method.toLowerCase();
-    let currentRequest = request[method === 'delete' ? 'del' : method](route.reverse(params));
+    let currentRequest = request[method === 'delete' ? 'del' : method](url);
 
     currentRequest = currentRequest.accept(config.responseType);
     if (config.headers) {
@@ -42,7 +42,7 @@ exports.makeRequest = function makeRequest(request) {
         if (err) {
             deferred.reject(err);
         } else {
-            deferred.resolve(res.body);
+            deferred.resolve(res);
         }
     });
     return deferred.promise;

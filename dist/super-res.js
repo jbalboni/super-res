@@ -1,11 +1,56 @@
-var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
-
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('q'), require('superagent'), require('route-parser'), require('cache-manager')) : typeof define === 'function' && define.amd ? define(['q', 'superagent', 'route-parser', 'cache-manager'], factory) : global.superRes = factory(global.Q, global.superagent, global.Route, global.cacheManager);
 })(this, function (Q, superagent, Route, cacheManager) {
   'use strict';
+
+  'use strict';
+
+  var superagentAdapter__exports = {};
+
+  superagentAdapter__exports.configureRequest = function configureRequest(config, url, dataTransformer) {
+    var method = config.method.toLowerCase();
+    var currentRequest = superagent[method === 'delete' ? 'del' : method](url);
+
+    currentRequest = currentRequest.accept(config.responseType);
+    if (config.headers) {
+      currentRequest = currentRequest.set(config.headers);
+    }
+
+    if (config.timeout) {
+      currentRequest.timeout(config.timeout);
+    } else {
+      currentRequest.clearTimeout();
+    }
+
+    if (config.withCredentials) {
+      currentRequest = currentRequest.withCredentials();
+    }
+
+    var transformedData = dataTransformer(currentRequest.header);
+    if (transformedData) {
+      if (method === 'get') {
+        currentRequest = currentRequest.query(transformedData);
+      } else {
+        currentRequest = currentRequest.send(transformedData);
+      }
+    }
+
+    return currentRequest;
+  };
+
+  superagentAdapter__exports.makeRequest = function makeRequest(request) {
+    var deferred = Q.defer();
+    request.end(function (err, res) {
+      if (err) {
+        deferred.reject(err);
+      } else {
+        deferred.resolve(res);
+      }
+    });
+    return deferred.promise;
+  };
+
+  var superagentAdapter = superagentAdapter__exports;
 
   var actionDefaults = actionDefaults = {
     method: 'GET',
@@ -16,192 +61,156 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     cache: null
   };
 
-  var ResourceAction_js__assign = ResourceAction_js__assign || require('object.assign');
+  var createRequestor_js__assign = createRequestor_js__assign || require('object.assign');
 
   var cacheDefault = { store: 'memory', max: 100, ttl: 1200 };
 
-  function applyResponseTransforms(transforms, response) {
-    return transforms.reduce(function (memo, transform) {
-      return transform(memo, response.header);
-    }, response.body);
+  function createResponseTransformer(transforms) {
+    return function applyResponseTransforms(response) {
+      return Q.resolve(transforms.reduce(function (memo, transform) {
+        return transform(memo, response.header);
+      }, response.body));
+    };
   }
 
-  function applyRequestTransforms(transforms, request, data) {
+  function applyRequestTransforms(transforms, header, data) {
     return transforms.reduce(function (memo, transform) {
-      return transform(memo, request.header);
+      return transform(memo, header);
     }, data);
   }
 
-  var ResourceAction = (function () {
-    function ResourceAction(url, defaultParams, action) {
-      var _this = this;
+  function canHaveData(method) {
+    var methodUpper = method.toUpperCase();
+    return methodUpper === 'POST' || methodUpper === 'PUT' || methodUpper === 'PATCH';
+  }
 
-      _classCallCheck(this, ResourceAction);
-
-      this.config = ResourceAction_js__assign({ url: url }, actionDefaults, action);
-
-      if (this.config.method.toUpperCase() === 'POST' || this.config.method.toUpperCase() === 'PUT' || this.config.method.toUpperCase() === 'PATCH') {
-        this.canHaveData = true;
+  function getParameters(defaultParamConfig) {
+    return Object.getOwnPropertyNames(defaultParamConfig).reduce(function (params, paramName) {
+      var param = defaultParamConfig[paramName];
+      if (typeof param === 'function') {
+        params.derivedParams[paramName] = param;
+      } else if (typeof param === 'string' && param.startsWith('@')) {
+        params.derivedParams[paramName] = param.slice(1);
+      } else {
+        //add to default if it's not an @ or function param
+        params.defaultParams[paramName] = param;
       }
+      return params;
+    }, { derivedParams: {}, defaultParams: {} });
+  }
 
-      this.route = new Route(this.config.url);
-      this.defaultParams = {};
-      this.derivedParams = {};
+  function createCacheKeyGetter(route) {
+    return function getCacheKey(params, data) {
+      return route.reverse(params) + JSON.stringify(data || {});
+    };
+  }
 
-      Object.getOwnPropertyNames(defaultParams).forEach(function (paramName) {
-        var param = defaultParams[paramName];
-        if (typeof param === 'function') {
-          _this.derivedParams[paramName] = param;
-        } else if (typeof param === 'string' && param.startsWith('@')) {
-          _this.derivedParams[paramName] = param.slice(1);
+  function checkCache(method, cache, key) {
+    var deferred = Q.defer();
+    if (cache && method.toUpperCase() === 'GET') {
+      cache.get(key, function (err, result) {
+        if (err) {
+          deferred.reject(err);
+        } else if (result) {
+          deferred.resolve({ found: true, result: result });
         } else {
-          //add to default if it's not an @ or function param
-          _this.defaultParams[paramName] = defaultParams[paramName];
+          deferred.resolve({ found: false });
         }
       });
-
-      if (this.config.cache === true) {
-        this.config.cache = cacheManager.caching(cacheDefault);
-      }
+    } else {
+      deferred.resolve({ found: false });
     }
+    return deferred.promise;
+  }
 
-    _createClass(ResourceAction, [{
-      key: 'getCacheKey',
-      value: function getCacheKey(params, data) {
-        return this.route.reverse(params) + JSON.stringify(data || {});
+  function expandParams(derivedParams, defaultParams, data) {
+    return Object.getOwnPropertyNames(derivedParams).reduce(function (computedParams, prop) {
+      var param = derivedParams[prop];
+      if (typeof param === 'function') {
+        computedParams[prop] = param();
+      } else {
+        computedParams[prop] = data[param];
       }
-    }, {
-      key: 'buildRequest',
-      value: function buildRequest(params, data) {
-        var method = this.config.method.toLowerCase();
-        var currentRequest = superagent[method === 'delete' ? 'del' : method](this.route.reverse(params));
+      return computedParams;
+    }, createRequestor_js__assign({}, defaultParams));
+  }
 
-        currentRequest = currentRequest.accept(this.config.responseType);
-        if (this.config.headers) {
-          currentRequest = currentRequest.set(this.config.headers);
-        }
+  function createRequestTransformer(transform, data) {
+    return function (header) {
+      return data ? applyRequestTransforms(transform, header, data) : null;
+    };
+  }
 
-        if (this.config.timeout) {
-          currentRequest.timeout(this.config.timeout);
+  function createRequestor(url, defaultParamConfig, action) {
+    var config = createRequestor_js__assign({ url: url }, actionDefaults, action);
+    //const canHaveData = canHaveData(config.method);
+    var route = new Route(config.url);
+
+    var _getParameters = getParameters(defaultParamConfig || {});
+
+    var derivedParams = _getParameters.derivedParams;
+    var defaultParams = _getParameters.defaultParams;
+
+    var transformResponse = createResponseTransformer(config.transformResponse);
+    var getCacheKey = createCacheKeyGetter(route);
+
+    config.cache = config.cache === true ? cacheManager.caching(cacheDefault) : config.cache;
+
+    return function (params, data) {
+      if (arguments.length === 1 && canHaveData(config.method)) {
+        data = params;
+        params = undefined;
+      }
+      var fullParams = createRequestor_js__assign(expandParams(derivedParams, defaultParams, data), params);
+      var url = route.reverse(params);
+      var configuredHttpRequest = superagentAdapter.configureRequest(config, url, createRequestTransformer(config.transformRequest, data));
+      var cacheKey = getCacheKey(fullParams, data);
+      return checkCache(config.method, config.cache, cacheKey).then(function cacheSuccess(_ref) {
+        var found = _ref.found;
+        var result = _ref.result;
+
+        if (found) {
+          return Q.resolve(result);
         } else {
-          currentRequest.clearTimeout();
-        }
-
-        if (this.config.withCredentials) {
-          currentRequest = currentRequest.withCredentials();
-        }
-
-        if (data) {
-          var transformedData = applyRequestTransforms(this.config.transformRequest, currentRequest, data);
-          if (method === 'get') {
-            currentRequest = currentRequest.query(transformedData);
-          } else {
-            currentRequest = currentRequest.send(transformedData);
-          }
-        }
-
-        return currentRequest;
-      }
-    }, {
-      key: 'makeRequest',
-      value: function makeRequest(params, data) {
-        var _this2 = this;
-
-        var deferred = Q.defer();
-
-        if (arguments.length === 1 && this.canHaveData) {
-          data = params;
-          params = undefined;
-        }
-
-        var computedParams = {};
-        Object.getOwnPropertyNames(this.derivedParams).forEach(function (prop) {
-          var param = _this2.derivedParams[prop];
-          if (typeof param === 'function') {
-            computedParams[prop] = param();
-          } else {
-            computedParams[prop] = data[param];
-          }
-        });
-
-        var fullParams = ResourceAction_js__assign({}, this.defaultParams, computedParams, params);
-
-        var doRequest = function doRequest() {
-          _this2.buildRequest(fullParams, data).end(function (err, res) {
-            if (err) {
-              deferred.reject(err);
-            } else {
-              var transformedReponse = applyResponseTransforms(_this2.config.transformResponse, res);
-
-              if (_this2.config.cache) {
-                _this2.config.cache.set(_this2.getCacheKey(fullParams, data), transformedReponse);
-              }
-
-              deferred.resolve(transformedReponse);
+          return superagentAdapter.makeRequest(configuredHttpRequest).then(transformResponse).then(function cacheResponse(response) {
+            if (config.cache) {
+              config.cache.set(cacheKey, response);
             }
+            return Q.resolve(response);
           });
-        };
-
-        if (this.config.cache && this.config.method.toUpperCase() === 'GET') {
-          var key = this.getCacheKey(fullParams, data);
-          this.config.cache.get(key, function (err, result) {
-            if (err) {
-              deferred.reject(err);
-            } else if (result) {
-              deferred.resolve(result);
-            } else {
-              doRequest();
-            }
-          });
-        } else {
-          doRequest();
         }
-
-        return deferred.promise;
-      }
-    }]);
-
-    return ResourceAction;
-  })();
+      });
+    };
+  }
 
   var super_res__assign = super_res__assign || require('object.assign');
 
-  var super_res__superRes = {};
+  var superRes = {};
 
   function generateDefaultActions(url, defaultParams) {
     var resource = {};
 
-    var action = new ResourceAction(url, defaultParams, super_res__assign({}, actionDefaults));
-    resource.get = action.makeRequest.bind(action);
+    resource.get = createRequestor(url, defaultParams);
     resource.query = resource.get;
-
-    action = new ResourceAction(url, defaultParams, super_res__assign({}, actionDefaults, { method: 'POST' }));
-    resource.save = action.makeRequest.bind(action);
-
-    action = new ResourceAction(url, defaultParams, super_res__assign({}, actionDefaults, { method: 'PUT' }));
-    resource.put = action.makeRequest.bind(action);
-
-    action = new ResourceAction(url, defaultParams, super_res__assign({}, actionDefaults, { method: 'DELETE' }));
-    resource.remove = action.makeRequest.bind(action);
+    resource.save = createRequestor(url, defaultParams, { method: 'POST' });
+    resource.put = createRequestor(url, defaultParams, { method: 'PUT' });
+    resource.remove = createRequestor(url, defaultParams, { method: 'DELETE' });
     resource['delete'] = resource.remove;
 
     return resource;
   }
 
-  super_res__superRes.resource = function (url, defaultParams, actions) {
+  superRes.resource = function (url, defaultParams, actions) {
     var resource = generateDefaultActions(url, defaultParams);
     if (actions) {
       Object.getOwnPropertyNames(actions).forEach(function (name) {
-        var action = new ResourceAction(url, defaultParams, actions[name]);
-        resource[name] = function () {
-          action.makeRequest.apply(action, arguments);
-        };
+        resource[name] = createRequestor(url, defaultParams, actions[name]);
       });
     }
     return resource;
   };
 
-  super_res__superRes.promiseWrapper = function promiseWrapper(wrapperFunc) {
+  superRes.promiseWrapper = function promiseWrapper(wrapperFunc) {
     return function (resource) {
       var proxiedResource = super_res__assign({}, resource);
       Object.getOwnPropertyNames(resource).forEach(function (name) {
@@ -219,7 +228,7 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
     };
   };
 
-  var super_res = super_res__superRes;
+  var super_res = superRes;
 
   return super_res;
 });

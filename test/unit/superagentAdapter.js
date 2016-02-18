@@ -32,7 +32,7 @@ describe('superagentAdapter: ', () => {
 
         const url = 'http://example.com/posts/';
         beforeEach(() => {
-            result = adapter.configureRequest({method: 'GET'}, new Route(url), null, () => null);
+            result = adapter.configureRequest({method: 'GET'}, (new Route(url)).reverse(), () => null);
         });
 
         it('should have called get with url', () => {
@@ -50,7 +50,7 @@ describe('superagentAdapter: ', () => {
 
         const url = 'http://example.com/posts/';
         beforeEach(() => {
-            result = adapter.configureRequest({method: 'GET'}, new Route(url), null, () => queryData);
+            result = adapter.configureRequest({method: 'GET'}, (new Route(url)).reverse(), () => queryData);
         });
 
         it('should have called query', () => {
@@ -64,7 +64,7 @@ describe('superagentAdapter: ', () => {
 
         const url = 'http://example.com/posts/:someParam';
         beforeEach(() => {
-            result = adapter.configureRequest({method: 'GET'}, new Route(url), {someParam: 'testing'}, () => queryData);
+            result = adapter.configureRequest({method: 'GET'}, (new Route(url)).reverse({someParam: 'testing'}), () => queryData);
         });
 
         it('should have called query', () => {
@@ -81,7 +81,7 @@ describe('superagentAdapter: ', () => {
 
         const url = 'http://example.com/posts/';
         beforeEach(() => {
-            result = adapter.configureRequest({method: 'POST'}, new Route(url), null, () => postData);
+            result = adapter.configureRequest({method: 'POST'}, (new Route(url)).reverse(), () => postData);
         });
 
         it('should have called post with url', () => {
@@ -101,7 +101,7 @@ describe('superagentAdapter: ', () => {
 
         const url = 'http://example.com/posts/:id';
         beforeEach(() => {
-            result = adapter.configureRequest({method: 'POST'}, new Route(url), {id: 'hashcode'}, () => postData);
+            result = adapter.configureRequest({method: 'POST'}, (new Route(url)).reverse({id: 'hashcode'}), () => postData);
         });
 
         it('should have called post with url which is picked from data.', () => {
@@ -121,7 +121,7 @@ describe('superagentAdapter: ', () => {
 
         const url = 'http://example.com/posts/:id';
         beforeEach(() => {
-            result = adapter.configureRequest({method: 'POST'}, new Route(url), {id: 'foo'}, () => postData);
+            result = adapter.configureRequest({method: 'POST'}, (new Route(url)).reverse({id: 'foo'}), () => postData);
         });
 
         it('should have called post with url', () => {
@@ -140,7 +140,7 @@ describe('superagentAdapter: ', () => {
 
         const url = 'http://example.com/posts/';
         beforeEach(() => {
-            result = adapter.configureRequest({method: 'POST', responseType: 'json'}, new Route(url), null, () => null);
+            result = adapter.configureRequest({method: 'POST', responseType: 'json'}, (new Route(url)).reverse(), () => null);
         });
 
         it('should have called accept with json', () => {
@@ -154,7 +154,7 @@ describe('superagentAdapter: ', () => {
 
         const url = 'http://example.com/posts/';
         beforeEach(() => {
-            result = adapter.configureRequest({method: 'POST', responseType: 'json', headers: headers}, new Route(url), {}, () => null);
+            result = adapter.configureRequest({method: 'POST', responseType: 'json', headers: headers}, (new Route(url)).reverse(), () => null);
         });
 
         it('should have called set', () => {
@@ -168,7 +168,7 @@ describe('superagentAdapter: ', () => {
 
         const url = 'http://example.com/posts/';
         beforeEach(() => {
-            result = adapter.configureRequest({method: 'POST', timeout: 30}, new Route(url), {}, () => null);
+            result = adapter.configureRequest({method: 'POST', timeout: 30}, (new Route(url)).reverse(), () => null);
         });
 
         it('should have called timeout', () => {
@@ -182,7 +182,7 @@ describe('superagentAdapter: ', () => {
 
         const url = 'http://example.com/posts/';
         beforeEach(() => {
-            result = adapter.configureRequest({method: 'POST'}, new Route(url), {}, () => null);
+            result = adapter.configureRequest({method: 'POST'}, (new Route(url)).reverse(), () => null);
         });
 
         it('should not have called timeout', () => {
@@ -210,7 +210,7 @@ describe('superagentAdapter: ', () => {
 
         it('should have resolved promise', (done) => {
             result.then(function (res) {
-                    expect(res).to.equal(returnData.body);
+                    expect(res.body).to.equal(returnData.body);
                     done();
                 })
                 .catch(done);
@@ -246,7 +246,7 @@ describe('superagentAdapter: ', () => {
 
         const url = 'http://example.com/posts/';
         beforeEach(() => {
-            result = adapter.configureRequest({method: 'POST', withCredentials: true}, new Route(url), {}, () => null);
+            result = adapter.configureRequest({method: 'POST', withCredentials: true}, (new Route(url)).reverse(), () => null);
         });
 
         it('should have called withCredentials', () => {

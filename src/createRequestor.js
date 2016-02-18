@@ -58,13 +58,13 @@ function checkCache(method, cache, key) {
       if (err) {
         deferred.reject(err);
       } else if (result) {
-        deferred.resolve(result);
+        deferred.resolve({found: true, result});
       } else {
-        deferred.reject();
+        deferred.resolve({found: false});
       }
     })
   } else {
-    deferred.reject();
+    deferred.resolve({found: false});
   }
   return deferred.promise;
 }
@@ -104,21 +104,24 @@ export default function createRequestor(url, defaultParamConfig, action) {
       params = undefined;
     }
     const fullParams = assign(expandParams(derivedParams, defaultParams, data), params);
-    const configuredHttpRequest = superagentAdapter.configureRequest(config, route, fullParams, createRequestTransformer(config.transformRequest, data));
+    const url = route.reverse(params);
+    const configuredHttpRequest = superagentAdapter.configureRequest(config, url, createRequestTransformer(config.transformRequest, data));
     const cacheKey = getCacheKey(fullParams, data);
-    return checkCache(method, config.cache, cacheKey)
-      .then(function cacheSuccess(result) {
-        return Q.resolve(result);
-      })
-      .catch(function cacheMiss() {
-        return superagentAdapter.makeRequest(configuredHttpRequest)
-            .then(transformResponse)
-            .then(function cacheResponse(response) {
-              if (config.cache) {
-                config.cache.set(cacheKey, reponse);
-              }
-              return Q.resolve(response);
-            });
+    return checkCache(config.method, config.cache, cacheKey)
+      .then(function cacheSuccess({found, result}) {
+        if (found) {
+          return Q.resolve(result);
+        } else {
+            return superagentAdapter.makeRequest(configuredHttpRequest)
+                .then(transformResponse)
+                .then(function cacheResponse(response) {
+                    if (config.cache) {
+                        config.cache.set(cacheKey, response);
+                    }
+                    return Q.resolve(response);
+                });
+        }
+
       });
   }
 }
