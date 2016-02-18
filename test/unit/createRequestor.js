@@ -61,7 +61,7 @@ describe('createRequestor', () => {
     });
 
     it('should have transformed response', (done) => {
-      result.then(function (res) {
+      result.then(function(res) {
         expect(res).to.equal(transResp);
         done();
       }).catch(done);
@@ -85,7 +85,7 @@ describe('createRequestor', () => {
     });
 
     it('should have returned cached value', (done) => {
-      result.then(function (res) {
+      result.then(function(res) {
         expect(res).to.equal(mockCachedResponse);
         done();
       }).catch(done);
@@ -118,7 +118,7 @@ describe('createRequestor', () => {
     });
 
     it('should have returned cached value', (done) => {
-      result.then(function (res) {
+      result.then(function(res) {
         expect(res).to.equal(mockCachedResponse);
         done();
       }).catch(done);
@@ -145,7 +145,7 @@ describe('createRequestor', () => {
     });
 
     it('should have called set', () => {
-      result.then(function (res) {
+      result.then(function(res) {
         expect(cacheStub.set.called).to.be.true;
         done();
       }).catch(done);

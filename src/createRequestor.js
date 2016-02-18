@@ -12,14 +12,14 @@ const cacheDefault = {store: 'memory', max: 100, ttl: 1200};
 
 function createResponseTransformer(transforms) {
   return function applyResponseTransforms(response) {
-    return Q.resolve(transforms.reduce(function (memo, transform) {
+    return Q.resolve(transforms.reduce(function(memo, transform) {
       return transform(memo, response.header);
     }, response.body));
   };
 }
 
 function applyRequestTransforms(transforms, header, data) {
-  return transforms.reduce(function (memo, transform) {
+  return transforms.reduce(function(memo, transform) {
     return transform(memo, header);
   }, data);
 }
@@ -71,15 +71,15 @@ function checkCache(method, cache, key) {
 
 function expandParams(derivedParams, defaultParams, data) {
   return Object.getOwnPropertyNames(derivedParams)
-      .reduce((computedParams, prop) => {
-        let param = derivedParams[prop];
-        if(typeof param === 'function') {
-          computedParams[prop] = param();
-        } else {
-          computedParams[prop] = data[param];
-        }
-        return computedParams;
-      }, assign({}, defaultParams));
+    .reduce((computedParams, prop) => {
+      let param = derivedParams[prop];
+      if (typeof param === 'function') {
+        computedParams[prop] = param();
+      } else {
+        computedParams[prop] = data[param];
+      }
+      return computedParams;
+    }, assign({}, defaultParams));
 }
 
 function createRequestTransformer(transform, data) {
@@ -90,7 +90,6 @@ function createRequestTransformer(transform, data) {
 
 export default function createRequestor(url, defaultParamConfig, action) {
   const config = assign({url: url}, actionDefaults, action);
-  //const canHaveData = canHaveData(config.method);
   const route = new Route(config.url);
   const {derivedParams, defaultParams} = getParameters(defaultParamConfig || {});
   const transformResponse = createResponseTransformer(config.transformResponse);
@@ -99,7 +98,7 @@ export default function createRequestor(url, defaultParamConfig, action) {
   config.cache = config.cache === true ? cacheManager.caching(cacheDefault) : config.cache;
 
   return function(params, data) {
-    if(arguments.length === 1 && canHaveData(config.method)) {
+    if (arguments.length === 1 && canHaveData(config.method)) {
       data = params;
       params = undefined;
     }
@@ -112,14 +111,14 @@ export default function createRequestor(url, defaultParamConfig, action) {
         if (found) {
           return Q.resolve(result);
         } else {
-            return superagentAdapter.makeRequest(configuredHttpRequest)
-                .then(transformResponse)
-                .then(function cacheResponse(response) {
-                    if (config.cache) {
-                        config.cache.set(cacheKey, response);
-                    }
-                    return Q.resolve(response);
-                });
+          return superagentAdapter.makeRequest(configuredHttpRequest)
+            .then(transformResponse)
+            .then(function cacheResponse(response) {
+              if (config.cache) {
+                config.cache.set(cacheKey, response);
+              }
+              return Q.resolve(response);
+            });
         }
 
       });

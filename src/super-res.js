@@ -32,7 +32,7 @@ superRes.promiseWrapper = function promiseWrapper(wrapperFunc) {
     let proxiedResource = assign({}, resource);
     Object.getOwnPropertyNames(resource).forEach((name) => {
       let actionFunction = proxiedResource[name];
-      proxiedResource[name] = function (...args) {
+      proxiedResource[name] = function(...args) {
         let promise = actionFunction.apply(proxiedResource, args);
         return wrapperFunc(promise);
       }

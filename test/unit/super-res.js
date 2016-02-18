@@ -8,7 +8,9 @@ describe('super-res: ', () => {
   beforeEach(() => {
     requestStub = stub();
     let stubs = {
-      './createRequestor.js': function() { return requestStub }
+      './createRequestor.js': function() {
+        return requestStub
+      }
     };
     superRes = proxyquire('../../src/super-res', stubs);
 
@@ -44,7 +46,7 @@ describe('super-res: ', () => {
     let resource;
     beforeEach(() => {
       resource = superRes.resource('http://example.com/posts/:id', null, {
-        myFunction: { method: 'GET' }
+        myFunction: {method: 'GET'}
       });
     });
 

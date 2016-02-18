@@ -143,7 +143,6 @@
 
   function createRequestor(url, defaultParamConfig, action) {
     var config = createRequestor_js__assign({ url: url }, actionDefaults, action);
-    //const canHaveData = canHaveData(config.method);
     var route = new Route(config.url);
 
     var _getParameters = getParameters(defaultParamConfig || {});
