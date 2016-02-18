@@ -16,7 +16,7 @@ This is patterned off of Angular's $resource service, except that it does not de
             console.log(responseData);
         });
     
-    myResource.save({id: 1}, {content: 'some sort of content')
+    myResource.save({id: 1}, {content: 'some sort of content'})
         .then(function (responseData) {
             console.log(responseData);
         });
@@ -29,6 +29,7 @@ Caching is handled by the [cache-manager](https://www.npmjs.com/package/cache-ma
 it will use cache-manager's default in-memory cache with a max size of 100 items and a max age of 20 minutes. Or, you can provide your own cache object, 
 so long as it follows the cache-manager interface.
 
+## Angular
 There is also a function called promiseWrapper, which will wrap the promises returned by each action with an instance of $q passed to it. This is helpful if you want to use it with Angular:
 
     angular.module('test', []).factory('myResource', function ($q) {
@@ -40,10 +41,13 @@ There is also a function called promiseWrapper, which will wrap the promises ret
     //somewhere else
     myResource.get({id: 1}; // returns a promise wrapped in $q.when() to hook into digest cycle
 
-The api is generally the same, but some things are not yet implemented. Here's what's on the list to add:
+## Future
+
+Here's what's on the list to add:
 - batching
 
-Differences from angular-resource:
+## Differences from angular-resource
+
 - Entirely promise based. No $promise or $resolved properties.
 - The data returned is just an object, it does not have any resource functions attached.
 - isArray doesn't do anything. I haven't seen a use case for it (arrays and objects work as you'd expect).
