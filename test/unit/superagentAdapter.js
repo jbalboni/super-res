@@ -6,6 +6,7 @@ describe('superagentAdapter: ', () => {
   let ResourceAction;
   let stubs;
   let cacheStub;
+  let plugin;
 
   beforeEach(() => {
     stubs = {
@@ -20,7 +21,8 @@ describe('superagentAdapter: ', () => {
         end: stub().returnsThis(),
         clearTimeout: stub().returnsThis(),
         timeout: stub().returnsThis(),
-        withCredentials: stub().returnsThis()
+        withCredentials: stub().returnsThis(),
+        use: stub().returnsThis(),
       }
     };
 
@@ -258,6 +260,26 @@ describe('superagentAdapter: ', () => {
 
     it('should have called withCredentials', () => {
       expect(stubs.superagent.withCredentials.called).to.be.true;
+    });
+
+  });
+
+  describe('request with superagent plugin', () => {
+    let result;
+
+    const url = 'http://example.com/posts/';
+    beforeEach(() => {
+      plugin = function(){}
+
+      result = adapter.configureRequest({
+        method: 'GET',
+        plugins: [plugin]
+      }, (new Route(url)).reverse(), () => null);
+    });
+
+    it('should have called use', () => {
+      expect(stubs.superagent.use.called).to.be.true;
+      expect(stubs.superagent.use.calledWith(plugin)).to.be.true;
     });
 
   });

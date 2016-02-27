@@ -4,5 +4,6 @@ export default actionDefaults = {
   transformRequest: [],
   transformResponse: [],
   withCredentials: false,
-  cache: null
+  cache: null,
+  plugins: []
 };
