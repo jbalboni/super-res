@@ -1,5 +1,3 @@
-var assign = assign || require('object.assign');
-
 import Q from 'q';
 import request from 'superagent';
 import Route from 'route-parser';
@@ -9,6 +7,8 @@ import superagentAdapter from './superagentAdapter.js';
 import actionDefaults from './actionDefaults.js';
 
 const cacheDefault = {store: 'memory', max: 100, ttl: 1200};
+const assign = assign || require('object.assign');
+
 
 function createResponseTransformer(transforms) {
   return function applyResponseTransforms(response) {
@@ -24,6 +24,8 @@ function applyRequestTransforms(transforms, header, data) {
   }, data);
 }
 
+//Only certain http methods can have data sent with them
+//This could be limiting to users
 function canHaveData(method) {
   const methodUpper = method.toUpperCase();
   return methodUpper === 'POST' || methodUpper === 'PUT' || methodUpper === 'PATCH';
@@ -88,6 +90,9 @@ function createRequestTransformer(transform, data) {
   }
 }
 
+/*
+ * Returns a function that will make http requests based on the configuration passed to it
+ */
 export default function createRequestor(url, defaultParamConfig, action) {
   const config = assign({url: url}, actionDefaults, action);
   const route = new Route(config.url);
@@ -98,12 +103,15 @@ export default function createRequestor(url, defaultParamConfig, action) {
   config.cache = config.cache === true ? cacheManager.caching(cacheDefault) : config.cache;
 
   return function(params, data) {
+    //if there's only one argument, assume it's the data instead of the second param
+    //I don't like this, but it is consistent with angular-resource
     if (arguments.length === 1 && canHaveData(config.method)) {
       data = params;
       params = undefined;
     }
     const fullParams = assign(expandParams(derivedParams, defaultParams, data), params);
-    const url = route.reverse(params);
+    const url = route.reverse(fullParams);
+    //The superagent interface has two phases, configure and makeRequest. The need for this is debatable
     const configuredHttpRequest = superagentAdapter.configureRequest(config, url, createRequestTransformer(config.transformRequest, data));
     const cacheKey = getCacheKey(fullParams, data);
     return checkCache(config.method, config.cache, cacheKey)

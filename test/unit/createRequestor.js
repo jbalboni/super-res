@@ -46,6 +46,68 @@ describe('createRequestor', () => {
     });
   });
 
+  describe('post with default params', () => {
+    let result;
+    let transReq = {data: 'something'};
+    let defaultParams = {defParam: 'test'};
+
+    const url = 'http://example.com/posts/';
+    beforeEach(() => {
+      const makeRequest = createRequestor(url + ':defParam', defaultParams, {
+        transformRequest: [() => transReq],
+        method: 'POST'
+      });
+      result = makeRequest({});
+    });
+
+    it('should have request with default param', () => {
+      var requestedUrl = configStub.firstCall.args[1];
+      expect(requestedUrl).to.equal(url + defaultParams.defParam);
+    });
+  });
+
+  describe('post with derived param', () => {
+    let result;
+    let transReq = {data: 'something'};
+    let defaultParams = {defParam: '@myData'};
+    let requestData = {myData: 'test'};
+
+    const url = 'http://example.com/posts/';
+    beforeEach(() => {
+      const makeRequest = createRequestor(url + ':defParam', defaultParams, {
+        transformRequest: [() => transReq],
+        method: 'POST'
+      });
+      result = makeRequest(requestData);
+    });
+
+    it('should have request with default param', () => {
+      var requestedUrl = configStub.firstCall.args[1];
+      expect(requestedUrl).to.equal(url + requestData.myData);
+    });
+  });
+
+  describe('post with function param', () => {
+    let result;
+    let transReq = {data: 'something'};
+    let defaultParams = {defParam: () => 'test'};
+    let requestData = {};
+
+    const url = 'http://example.com/posts/';
+    beforeEach(() => {
+      const makeRequest = createRequestor(url + ':defParam', defaultParams, {
+        transformRequest: [() => transReq],
+        method: 'POST'
+      });
+      result = makeRequest(requestData);
+    });
+
+    it('should have request with default param', () => {
+      var requestedUrl = configStub.firstCall.args[1];
+      expect(requestedUrl).to.equal(url + 'test');
+    });
+  });
+
   describe('post with response transform', () => {
     let result;
     let transResp = {data: 'something'};
