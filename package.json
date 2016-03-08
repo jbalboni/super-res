@@ -1,6 +1,6 @@
 {
   "name": "super-res",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "RESTish wrapper for superagent, based on angular-resource",
   "main": "dist/super-res.js",
   "scripts": {
