@@ -55,3 +55,18 @@ Here's what's on the list to add:
 - Transforms are passed a headers object as the second argument, rather than a getter.
 - Superagent will automatically parse certain response types. This is not suppressed by passing a responseTransform of [].
 - Excess default parameters are not automatically added to the query string if they're not in the route template (PRs welcome for this).
+
+## Superagent Plugins
+
+Additionally to the angular resource options, [superagent plugins](https://github.com/visionmedia/superagent#plugins) can be configured for each resource action.
+
+```
+var nocache = require('superagent-no-cache');
+var prefix = require('superagent-prefix');
+
+var myResource = superRes.resource('/my-endpoint/:id', {
+  action: {
+    method: 'GET',
+    plugins: [nocache, prefix('/static')]
+  }
+})

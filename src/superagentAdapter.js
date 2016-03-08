@@ -9,6 +9,13 @@ exports.configureRequest = function configureRequest(config, url, dataTransforme
   const method = config.method.toLowerCase();
   let currentRequest = request[method === 'delete' ? 'del' : method](url);
 
+  // Setup superagent plugins
+  if (config.plugins && config.plugins.length) {
+    config.plugins.forEach((plugin) => {
+      currentRequest = currentRequest.use(plugin);
+    });
+  }
+
   currentRequest = currentRequest.accept(config.responseType);
   if (config.headers) {
     currentRequest = currentRequest.set(config.headers);
