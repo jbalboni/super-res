@@ -15,7 +15,7 @@ describe('createRequestor', () => {
       set: stub()
     };
     stubs = {
-      './superagentAdapter.js': {
+      './superagent-adapter.js': {
         configureRequest: configStub,
         makeRequest: makeStub
       },
@@ -24,7 +24,7 @@ describe('createRequestor', () => {
       }
     };
 
-    createRequestor = proxyquire('../../src/createRequestor', stubs);
+    createRequestor = proxyquire('../../src/create-requestor', stubs);
   });
 
   describe('post with request transform', () => {

@@ -3,8 +3,8 @@ import request from 'superagent';
 import Route from 'route-parser';
 import cacheManager from 'cache-manager';
 
-import superagentAdapter from './superagentAdapter.js';
-import actionDefaults from './actionDefaults.js';
+import superagentAdapter from './superagent-adapter.js';
+import actionDefaults from './action-defaults.js';
 
 const cacheDefault = {store: 'memory', max: 100, ttl: 1200};
 const assign = assign || require('object.assign');

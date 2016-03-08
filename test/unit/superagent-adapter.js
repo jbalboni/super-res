@@ -3,9 +3,8 @@ import Q from 'q';
 import Route from 'route-parser';
 
 describe('superagentAdapter: ', () => {
-  let ResourceAction;
+  let adapter;
   let stubs;
-  let cacheStub;
   let plugin;
 
   beforeEach(() => {
@@ -22,11 +21,11 @@ describe('superagentAdapter: ', () => {
         clearTimeout: stub().returnsThis(),
         timeout: stub().returnsThis(),
         withCredentials: stub().returnsThis(),
-        use: stub().returnsThis(),
+        use: stub().returnsThis()
       }
     };
 
-    adapter = proxyquire('../../src/superagentAdapter', stubs);
+    adapter = proxyquire('../../src/superagent-adapter', stubs);
   });
 
   describe('get request with no data', () => {
@@ -269,7 +268,7 @@ describe('superagentAdapter: ', () => {
 
     const url = 'http://example.com/posts/';
     beforeEach(() => {
-      plugin = function(){}
+      plugin = function(){};
 
       result = adapter.configureRequest({
         method: 'GET',

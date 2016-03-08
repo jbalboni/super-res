@@ -31,3 +31,5 @@ tmp
 .lock-wscript
 .DS_Store
 .idea
+
+*.orig

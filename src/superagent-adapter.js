@@ -1,5 +1,3 @@
-'use strict';
-
 import request from 'superagent';
 import Q from 'q';
 

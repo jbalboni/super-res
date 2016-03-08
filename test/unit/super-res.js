@@ -8,7 +8,7 @@ describe('super-res: ', () => {
   beforeEach(() => {
     requestStub = stub();
     let stubs = {
-      './createRequestor.js': function() {
+      './create-requestor.js': function() {
         return requestStub
       }
     };

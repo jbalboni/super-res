@@ -3,13 +3,18 @@
 })(this, function (Q, superagent, Route, cacheManager) {
   'use strict';
 
-  'use strict';
-
   var superagentAdapter__exports = {};
 
   superagentAdapter__exports.configureRequest = function configureRequest(config, url, dataTransformer) {
     var method = config.method.toLowerCase();
     var currentRequest = superagent[method === 'delete' ? 'del' : method](url);
+
+    // Setup superagent plugins
+    if (config.plugins && config.plugins.length) {
+      config.plugins.forEach(function (plugin) {
+        currentRequest = currentRequest.use(plugin);
+      });
+    }
 
     currentRequest = currentRequest.accept(config.responseType);
     if (config.headers) {
@@ -58,12 +63,12 @@
     transformRequest: [],
     transformResponse: [],
     withCredentials: false,
-    cache: null
+    cache: null,
+    plugins: []
   };
 
-  var createRequestor_js__assign = createRequestor_js__assign || require('object.assign');
-
   var cacheDefault = { store: 'memory', max: 100, ttl: 1200 };
+  var create_requestor_js__assign = create_requestor_js__assign || require('object.assign');
 
   function createResponseTransformer(transforms) {
     return function applyResponseTransforms(response) {
@@ -79,6 +84,8 @@
     }, data);
   }
 
+  //Only certain http methods can have data sent with them
+  //This could be limiting to users
   function canHaveData(method) {
     var methodUpper = method.toUpperCase();
     return methodUpper === 'POST' || methodUpper === 'PUT' || methodUpper === 'PATCH';
@@ -132,7 +139,7 @@
         computedParams[prop] = data[param];
       }
       return computedParams;
-    }, createRequestor_js__assign({}, defaultParams));
+    }, create_requestor_js__assign({}, defaultParams));
   }
 
   function createRequestTransformer(transform, data) {
@@ -141,8 +148,11 @@
     };
   }
 
+  /*
+   * Returns a function that will make http requests based on the configuration passed to it
+   */
   function createRequestor(url, defaultParamConfig, action) {
-    var config = createRequestor_js__assign({ url: url }, actionDefaults, action);
+    var config = create_requestor_js__assign({ url: url }, actionDefaults, action);
     var route = new Route(config.url);
 
     var _getParameters = getParameters(defaultParamConfig || {});
@@ -156,12 +166,15 @@
     config.cache = config.cache === true ? cacheManager.caching(cacheDefault) : config.cache;
 
     return function (params, data) {
+      //if there's only one argument, assume it's the data instead of the second param
+      //I don't like this, but it is consistent with angular-resource
       if (arguments.length === 1 && canHaveData(config.method)) {
         data = params;
         params = undefined;
       }
-      var fullParams = createRequestor_js__assign(expandParams(derivedParams, defaultParams, data), params);
-      var url = route.reverse(params);
+      var fullParams = create_requestor_js__assign(expandParams(derivedParams, defaultParams, data), params);
+      var url = route.reverse(fullParams);
+      //The superagent interface has two phases, configure and makeRequest. The need for this is debatable
       var configuredHttpRequest = superagentAdapter.configureRequest(config, url, createRequestTransformer(config.transformRequest, data));
       var cacheKey = getCacheKey(fullParams, data);
       return checkCache(config.method, config.cache, cacheKey).then(function cacheSuccess(_ref) {

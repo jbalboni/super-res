@@ -1,6 +1,6 @@
 var assign = assign || require('object.assign');
 
-import createRequestor from './createRequestor.js';
+import createRequestor from './create-requestor.js';
 
 const superRes = {};
 
